@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import AdminLayout from "../components/AdminLayout";
+import NoticeModal from "../components/NoticeModal";
+import ConfirmModal from "../components/ConfirmModal";
 import {
     EditIcon,
     PlusIcon,
@@ -25,6 +27,11 @@ function ExamManagement() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState("");
+
+    // Popups
+    const [notice, setNotice] = useState(null);
+    const [deleteTarget, setDeleteTarget] = useState(null);
+    const [deleting, setDeleting] = useState(false);
 
     const [defaults, setDefaults] = useState({
         defaultExamDuration: "",
@@ -117,14 +124,101 @@ function ExamManagement() {
 
         e.preventDefault();
 
+        const examNameText = examName.trim();
+        const descriptionText = description.trim();
+        const durationValue = Number(duration);
+        const totalMarksValue = Number(totalMarks);
+
+
+        // ---------- Exam name ----------
+
+        if (!examNameText) {
+            setNotice({
+                type: "error",
+                title: "Exam name required",
+                message:
+                    "Please enter a name for the examination."
+            });
+            return;
+        }
+
+
+        // ---------- Description ----------
+
+        if (!descriptionText) {
+            setNotice({
+                type: "error",
+                title: "Description required",
+                message:
+                    "Please enter a short description for the examination."
+            });
+            return;
+        }
+
+
+        // ---------- Duration ----------
+
         if (
-            !examName ||
-            !description ||
-            !duration ||
-            !totalMarks ||
-            !examDate
+            duration === "" ||
+            duration === null ||
+            duration === undefined
         ) {
-            alert("Please fill all fields");
+            setNotice({
+                type: "error",
+                title: "Duration required",
+                message:
+                    "Please enter the duration of the examination in minutes."
+            });
+            return;
+        }
+
+        if (!Number.isFinite(durationValue) || durationValue <= 0) {
+            setNotice({
+                type: "error",
+                title: "Invalid duration",
+                message:
+                    "Duration must be a number of minutes greater than 0."
+            });
+            return;
+        }
+
+
+        // ---------- Total marks ----------
+
+        if (
+            totalMarks === "" ||
+            totalMarks === null ||
+            totalMarks === undefined
+        ) {
+            setNotice({
+                type: "error",
+                title: "Total marks required",
+                message:
+                    "Please enter the total marks for the examination."
+            });
+            return;
+        }
+
+        if (!Number.isFinite(totalMarksValue) || totalMarksValue <= 0) {
+            setNotice({
+                type: "error",
+                title: "Invalid total marks",
+                message:
+                    "Total marks must be a number greater than 0."
+            });
+            return;
+        }
+
+
+        // ---------- Exam date ----------
+
+        if (!examDate) {
+            setNotice({
+                type: "error",
+                title: "Exam date required",
+                message:
+                    "Please choose the date of the examination."
+            });
             return;
         }
 
@@ -150,10 +244,10 @@ function ExamManagement() {
                         },
 
                         body: JSON.stringify({
-                            examName,
-                            description,
-                            duration: Number(duration),
-                            totalMarks: Number(totalMarks),
+                            examName: examNameText,
+                            description: descriptionText,
+                            duration: durationValue,
+                            totalMarks: totalMarksValue,
                             examDate,
                         }),
                     }
@@ -183,9 +277,20 @@ function ExamManagement() {
                 );
 
 
-                alert(
-                    "Exam updated successfully"
-                );
+                const examDateLabel =
+                    String(data.exam.examDate || "").substring(0, 10) ||
+                    "the scheduled date";
+
+                setNotice({
+                    type: "success",
+                    title: "Exam updated",
+                    message:
+                        data.exam.isPublished
+                            ? data.exam.isUpcoming
+                                ? `The examination was updated successfully. Its questions are complete and it will open to students on ${examDateLabel}.`
+                                : "The examination was updated successfully. Its questions are complete, so it is available to students."
+                            : `The examination was updated successfully, but it stays a draft. It becomes available to students only when its questions total exactly ${data.exam.totalMarks} marks.`
+                });
 
             }
 
@@ -205,10 +310,10 @@ function ExamManagement() {
                         },
 
                         body: JSON.stringify({
-                            examName,
-                            description,
-                            duration: Number(duration),
-                            totalMarks: Number(totalMarks),
+                            examName: examNameText,
+                            description: descriptionText,
+                            duration: durationValue,
+                            totalMarks: totalMarksValue,
                             examDate,
                             createdDate:
                                 new Date()
@@ -239,9 +344,19 @@ function ExamManagement() {
                 ]);
 
 
-                alert(
-                    "Exam added successfully"
-                );
+                const createdDateLabel =
+                    String(data.exam.examDate || "").substring(0, 10) ||
+                    "the scheduled date";
+
+                setNotice({
+                    type: "success",
+                    title: "Exam created",
+                    message:
+                        `The examination was created successfully and is saved as a draft. Add questions until their total marks equal the exam total of ${data.exam.totalMarks} marks.` +
+                        (data.exam.isUpcoming
+                            ? ` It will open to students on ${createdDateLabel}.`
+                            : " It will then be available to students.")
+                });
 
             }
 
@@ -327,20 +442,17 @@ function ExamManagement() {
     // DELETE EXAM
     // ==========================================
 
-    const handleDelete = async (id) => {
+    const handleDelete = async () => {
 
-        const confirmDelete =
-            window.confirm(
-                "Are you sure you want to delete this exam?"
-            );
-
-
-        if (!confirmDelete) {
+        if (!deleteTarget) {
             return;
         }
 
+        const id = deleteTarget;
 
         try {
+
+            setDeleting(true);
 
             const response = await fetch(
                 `http://localhost:5000/api/exams/${id}`,
@@ -371,9 +483,29 @@ function ExamManagement() {
             );
 
 
-            alert(
-                "Exam deleted successfully"
-            );
+            setDeleteTarget(null);
+
+            const hasCounts =
+                data.deletedQuestions !== undefined ||
+                data.deletedResults !== undefined;
+
+            const deletedQuestions =
+                Number(data.deletedQuestions) || 0;
+
+            const deletedResults =
+                Number(data.deletedResults) || 0;
+
+            setNotice({
+                type: "success",
+                title: "Exam deleted",
+                message: hasCounts
+                    ? `The examination was deleted successfully, along with ${deletedQuestions} question${
+                          deletedQuestions === 1 ? "" : "s"
+                      } and ${deletedResults} student result${
+                          deletedResults === 1 ? "" : "s"
+                      }.`
+                    : "The examination was deleted successfully, including its questions and student results."
+            });
 
 
         } catch (error) {
@@ -383,9 +515,19 @@ function ExamManagement() {
                 error
             );
 
-            alert(
-                "Unable to delete exam"
-            );
+            setDeleteTarget(null);
+
+            setNotice({
+                type: "error",
+                title: "Delete failed",
+                message:
+                    error.message ||
+                    "Unable to delete exam."
+            });
+
+        } finally {
+
+            setDeleting(false);
 
         }
 
@@ -803,6 +945,23 @@ function ExamManagement() {
 
                                         </div>
 
+
+                                        <span
+                                            className={
+                                                exam.isPublished
+                                                    ? exam.isUpcoming
+                                                        ? "exam-publish-status upcoming"
+                                                        : "exam-publish-status published"
+                                                    : "exam-publish-status draft"
+                                            }
+                                        >
+                                            {exam.isPublished
+                                                ? exam.isUpcoming
+                                                    ? "Coming Soon"
+                                                    : "Published"
+                                                : "Draft"}
+                                        </span>
+
                                     </div>
 
 
@@ -867,6 +1026,36 @@ function ExamManagement() {
                                     </div>
 
 
+                                    <p
+                                        className={
+                                            exam.isPublished
+                                                ? exam.isUpcoming
+                                                    ? "exam-publish-note upcoming"
+                                                    : "exam-publish-note published"
+                                                : "exam-publish-note draft"
+                                        }
+                                    >
+
+                                        {exam.isPublished
+                                            ? exam.isUpcoming
+                                                ? `Questions complete — opens to students on ${
+                                                      exam.examDate
+                                                          ? String(
+                                                                exam.examDate
+                                                            ).substring(
+                                                                0,
+                                                                10
+                                                            )
+                                                          : "the scheduled date"
+                                                  }`
+                                                : "Questions complete — available to students"
+                                            : exam.questionCount === 0
+                                            ? "No questions added yet — not available to students"
+                                            : `Questions total ${exam.questionsTotalMarks} of ${exam.totalMarks} marks — not available to students`}
+
+                                    </p>
+
+
                                     <div className="exam-card-actions">
 
 
@@ -886,7 +1075,7 @@ function ExamManagement() {
                                         <button
                                             className="delete-btn"
                                             onClick={() =>
-                                                handleDelete(
+                                                setDeleteTarget(
                                                     exam._id
                                                 )
                                             }
@@ -907,6 +1096,30 @@ function ExamManagement() {
                     )}
 
                 </section>
+
+
+                {/* DELETE CONFIRM POPUP */}
+
+                {deleteTarget && (
+                    <ConfirmModal
+                        title="Delete this exam?"
+                        message="Deleting this exam will also permanently remove all of its questions and student results. This action cannot be undone."
+                        confirmLabel="Yes, Delete"
+                        cancelLabel="Cancel"
+                        danger
+                        busy={deleting}
+                        onConfirm={handleDelete}
+                        onCancel={() => setDeleteTarget(null)}
+                    />
+                )}
+
+
+                {/* NOTICE POPUP */}
+
+                <NoticeModal
+                    notice={notice}
+                    onClose={() => setNotice(null)}
+                />
 
         </AdminLayout>
 

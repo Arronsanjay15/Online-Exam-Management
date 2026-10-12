@@ -18,6 +18,7 @@ function ResultPage() {
     const navigate = useNavigate();
 
     const [result, setResult] = useState(null);
+    const [questions, setQuestions] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
 
@@ -62,6 +63,34 @@ function ResultPage() {
             }
 
             setResult(data);
+
+            // Load the exam questions so we can show the
+            // student exactly which answers were right or
+            // wrong and reveal the correct option.
+            const examId = data.examId?._id || data.examId;
+
+            if (examId) {
+
+                try {
+
+                    const questionResponse = await fetch(
+                        `http://localhost:5000/api/questions/exam/${examId}`
+                    );
+
+                    const questionData = await questionResponse.json();
+
+                    if (questionResponse.ok) {
+                        setQuestions(questionData);
+                    }
+
+                } catch (questionError) {
+
+                    // The review falls back to the saved answers.
+                    console.error(questionError);
+
+                }
+
+            }
 
         } catch (error) {
 
@@ -166,6 +195,50 @@ function ResultPage() {
     if (!result) {
         return null;
     }
+
+
+    // ==========================================
+    // ANSWER REVIEW
+    // Compare each saved answer against the
+    // correct answer of the matching question.
+    // ==========================================
+
+    const savedAnswers = result.answers || {};
+
+    const reviewItems = questions.map((question) => {
+
+        const selected = savedAnswers[question._id] || "";
+
+        let status = "skipped";
+
+        if (selected) {
+            status =
+                selected === question.correctAnswer
+                    ? "correct"
+                    : "wrong";
+        }
+
+        return {
+            question,
+            selected,
+            status
+        };
+
+    });
+
+    const correctCount = reviewItems.filter(
+        (item) => item.status === "correct"
+    ).length;
+
+    const wrongCount = reviewItems.filter(
+        (item) => item.status === "wrong"
+    ).length;
+
+    const skippedCount = reviewItems.filter(
+        (item) => item.status === "skipped"
+    ).length;
+
+    const selectedAnswerList = Object.entries(savedAnswers);
 
 
     return (
@@ -485,10 +558,220 @@ function ResultPage() {
                 </section>
 
 
-                {/* ANSWERS */}
+                {/* ANSWER REVIEW */}
 
-                {result.answers &&
-                    Object.keys(result.answers).length > 0 && (
+                {reviewItems.length > 0 && (
+
+                    <section className="result-answers-card">
+
+                        <div className="result-section-title">
+
+                            <div>
+
+                                <h2>
+                                    Answer Review
+                                </h2>
+
+                                <p>
+                                    See each question, your answer and the
+                                    correct answer
+                                </p>
+
+                            </div>
+
+                        </div>
+
+
+                        <div className="answer-review-summary">
+
+                            <div className="answer-review-stat correct">
+
+                                <strong>
+                                    {correctCount}
+                                </strong>
+
+                                <span>
+                                    Correct
+                                </span>
+
+                            </div>
+
+
+                            <div className="answer-review-stat wrong">
+
+                                <strong>
+                                    {wrongCount}
+                                </strong>
+
+                                <span>
+                                    Wrong
+                                </span>
+
+                            </div>
+
+
+                            <div className="answer-review-stat skipped">
+
+                                <strong>
+                                    {skippedCount}
+                                </strong>
+
+                                <span>
+                                    Not Answered
+                                </span>
+
+                            </div>
+
+                        </div>
+
+
+                        <div className="answer-review-list">
+
+                            {reviewItems.map((item, index) => (
+
+                                <div
+                                    className={
+                                        `answer-review-item ${item.status}`
+                                    }
+                                    key={item.question._id}
+                                >
+
+                                    <div className="answer-review-head">
+
+                                        <span className="answer-review-number">
+                                            Question {index + 1}
+                                        </span>
+
+                                        <span
+                                            className={
+                                                `answer-review-badge ${item.status}`
+                                            }
+                                        >
+                                            {item.status === "correct"
+                                                ? "Correct"
+                                                : item.status === "wrong"
+                                                ? "Wrong"
+                                                : "Not Answered"}
+                                        </span>
+
+                                    </div>
+
+
+                                    <h3>
+                                        {item.question.question}
+                                    </h3>
+
+
+                                    <div className="answer-review-options">
+
+                                        {["A", "B", "C", "D"].map(
+                                            (option) => {
+
+                                                const isCorrectOption =
+                                                    option ===
+                                                    item.question.correctAnswer;
+
+                                                const isSelected =
+                                                    option === item.selected;
+
+                                                const optionClass = [
+                                                    "answer-review-option",
+                                                    isCorrectOption
+                                                        ? "correct"
+                                                        : "",
+                                                    isSelected &&
+                                                        !isCorrectOption
+                                                        ? "wrong"
+                                                        : "",
+                                                    isSelected
+                                                        ? "selected"
+                                                        : ""
+                                                ]
+                                                    .filter(Boolean)
+                                                    .join(" ");
+
+                                                return (
+
+                                                    <div
+                                                        className={optionClass}
+                                                        key={option}
+                                                    >
+
+                                                        <span className="answer-review-letter">
+                                                            {option}
+                                                        </span>
+
+                                                        <span className="answer-review-text">
+                                                            {
+                                                                item.question
+                                                                    .options?.[
+                                                                    option
+                                                                ]
+                                                            }
+                                                        </span>
+
+                                                        {isCorrectOption && (
+                                                            <span className="answer-review-mark correct">
+                                                                <CheckIcon size={14} />
+                                                            </span>
+                                                        )}
+
+                                                        {isSelected &&
+                                                            !isCorrectOption && (
+                                                            <span className="answer-review-mark wrong">
+                                                                <XIcon size={14} />
+                                                            </span>
+                                                        )}
+
+                                                    </div>
+
+                                                );
+
+                                            }
+                                        )}
+
+                                    </div>
+
+
+                                    <div className="answer-review-footer">
+
+                                        <span>
+                                            Your answer:{" "}
+                                            <strong
+                                                className={item.status}
+                                            >
+                                                {item.selected ||
+                                                    "Not answered"}
+                                            </strong>
+                                        </span>
+
+                                        <span>
+                                            Correct answer:{" "}
+                                            <strong className="correct">
+                                                {
+                                                    item.question
+                                                        .correctAnswer
+                                                }
+                                            </strong>
+                                        </span>
+
+                                    </div>
+
+                                </div>
+
+                            ))}
+
+                        </div>
+
+                    </section>
+
+                )}
+
+
+                {/* FALLBACK ANSWER LIST (when questions are unavailable) */}
+
+                {reviewItems.length === 0 &&
+                    selectedAnswerList.length > 0 && (
 
                         <section className="result-answers-card">
 
@@ -511,9 +794,7 @@ function ResultPage() {
 
                             <div className="answer-summary">
 
-                                {Object.entries(
-                                    result.answers
-                                ).map(
+                                {selectedAnswerList.map(
                                     ([questionId, answer], index) => (
 
                                         <div

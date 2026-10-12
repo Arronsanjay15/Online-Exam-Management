@@ -157,6 +157,19 @@ function StudentDashboard() {
         );
 
 
+    // Exams whose questions are complete are visible to
+    // students. Exams whose exam date has not arrived yet are
+    // still listed, but only as "coming soon" and they cannot
+    // be started.
+    const visibleExams = exams.filter(
+        (exam) => exam.isPublished === true
+    );
+
+    const availableCount = visibleExams.filter(
+        (exam) => exam.isAvailable === true
+    ).length;
+
+
     const startExam = (examId) => {
 
         navigate(`/exam/${examId}`);
@@ -248,7 +261,9 @@ function StudentDashboard() {
                         </span>
 
                         <strong>
-                            {loading ? "..." : exams.length}
+                            {loading
+                                ? "..."
+                                : availableCount}
                         </strong>
 
                         <small>
@@ -378,7 +393,7 @@ function StudentDashboard() {
 
                 {!loading &&
                     !error &&
-                    exams.length === 0 && (
+                    visibleExams.length === 0 && (
 
                         <div className="student-empty">
 
@@ -403,14 +418,17 @@ function StudentDashboard() {
 
                 {!loading &&
                     !error &&
-                    exams.length > 0 && (
+                    visibleExams.length > 0 && (
 
                         <div className="student-exam-grid">
 
-                            {exams.map((exam) => {
+                            {visibleExams.map((exam) => {
 
                                 const completed =
                                     hasCompleted(exam._id);
+
+                                const upcoming =
+                                    exam.isUpcoming === true;
 
                                 return (
 
@@ -429,11 +447,15 @@ function StudentDashboard() {
                                                 className={
                                                     completed
                                                         ? "exam-status completed"
+                                                        : upcoming
+                                                        ? "exam-status upcoming"
                                                         : "exam-status"
                                                 }
                                             >
                                                 {completed
                                                     ? "Completed"
+                                                    : upcoming
+                                                    ? "Coming Soon"
                                                     : "Available"}
                                             </span>
 
@@ -444,6 +466,21 @@ function StudentDashboard() {
                                             {exam.examName}
                                         </h3>
 
+
+                                        {upcoming ? (
+
+                                            <p className="exam-upcoming-note">
+                                                Not open yet. This exam
+                                                will be available on{" "}
+                                                {getExamDate(
+                                                    exam.examDate
+                                                )}
+                                                .
+                                            </p>
+
+                                        ) : (
+
+                                            <>
 
                                         <p className="exam-description">
                                             {exam.description ||
@@ -536,6 +573,10 @@ function StudentDashboard() {
                                             </span>
 
                                         </button>
+
+                                            </>
+
+                                        )}
 
                                     </div>
 

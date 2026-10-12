@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import AdminLayout from "../components/AdminLayout";
+import NoticeModal from "../components/NoticeModal";
+import ConfirmModal from "../components/ConfirmModal";
 import {
     EditIcon,
     PlusIcon,
@@ -28,6 +30,11 @@ function QuestionManagement() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState("");
+
+    // Popups
+    const [notice, setNotice] = useState(null);
+    const [deleteTarget, setDeleteTarget] = useState(null);
+    const [deleting, setDeleting] = useState(false);
 
 
     // ==========================================
@@ -117,6 +124,96 @@ function QuestionManagement() {
 
 
     // ==========================================
+    // SELECTED EXAM + MARK CRITERIA
+    // Only the questions that belong to the
+    // currently selected exam are shown, and the
+    // sum of their marks is compared with the
+    // total marks set on the exam.
+    // ==========================================
+
+    const selectedExam =
+        exams.find((exam) => exam._id === examId) || null;
+
+    const examQuestions = examId
+        ? questions.filter((item) => {
+            const itemExamId =
+                item.examId?._id || item.examId;
+
+            return itemExamId === examId;
+        })
+        : [];
+
+    const questionsTotalMarks = examQuestions.reduce(
+        (sum, item) => sum + (Number(item.marks) || 0),
+        0
+    );
+
+    const examTotalMarks = Number(selectedExam?.totalMarks) || 0;
+
+    const marksRemaining =
+        examTotalMarks - questionsTotalMarks;
+
+
+    // A short, logical message about the marks criteria
+    const getMarksCriteriaMessage = () => {
+
+        if (!selectedExam) {
+            return "";
+        }
+
+        if (examTotalMarks <= 0) {
+            return "This examination has no total marks set, so the marks criteria cannot be checked.";
+        }
+
+        if (examQuestions.length === 0) {
+            return `No questions added yet. The marks of all questions must add up to exactly ${examTotalMarks} to satisfy the exam total.`;
+        }
+
+        if (questionsTotalMarks === examTotalMarks) {
+            return `All questions add up to exactly ${examTotalMarks} marks, which matches the exam total. This exam is available to students.`;
+        }
+
+        if (questionsTotalMarks < examTotalMarks) {
+            return `Questions currently add up to ${questionsTotalMarks} of ${examTotalMarks} marks. Add ${marksRemaining} more mark${marksRemaining === 1 ? "" : "s"} of questions to match the exam total.`;
+        }
+
+        return `Questions add up to ${questionsTotalMarks} marks, which is ${questionsTotalMarks - examTotalMarks} mark${questionsTotalMarks - examTotalMarks === 1 ? "" : "s"} more than the exam total of ${examTotalMarks}. The questions do not satisfy the total marks criteria.`;
+    };
+
+
+    const marksCriteriaStatus =
+        !selectedExam || examTotalMarks <= 0
+            ? "empty"
+            : questionsTotalMarks === examTotalMarks
+            ? "matched"
+            : questionsTotalMarks < examTotalMarks
+            ? "short"
+            : "over";
+
+
+    // Feedback sentence used after a question is saved so the
+    // admin knows whether the marks now satisfy the exam total.
+    const getMarksFeedback = (total) => {
+
+        if (!selectedExam || examTotalMarks <= 0) {
+            return "";
+        }
+
+        if (total === examTotalMarks) {
+            return ` The questions now add up to exactly ${examTotalMarks} marks, matching the exam total. The exam is now available to students.`;
+        }
+
+        if (total < examTotalMarks) {
+            const remaining = examTotalMarks - total;
+
+            return ` The questions add up to ${total} of ${examTotalMarks} marks — ${remaining} mark${remaining === 1 ? "" : "s"} still remaining.`;
+        }
+
+        return ` The questions add up to ${total} marks, which is more than the exam total of ${examTotalMarks} marks.`;
+    };
+
+
+    // ==========================================
     // ADD / UPDATE QUESTION
     // ==========================================
 
@@ -124,17 +221,152 @@ function QuestionManagement() {
 
         e.preventDefault();
 
-        if (
-            !examId ||
-            !question ||
-            !optionA ||
-            !optionB ||
-            !optionC ||
-            !optionD ||
-            !correctAnswer ||
-            !marks
-        ) {
-            alert("Please fill all fields");
+        const questionText = question.trim();
+
+        const options = {
+            A: optionA.trim(),
+            B: optionB.trim(),
+            C: optionC.trim(),
+            D: optionD.trim()
+        };
+
+        const marksValue = Number(marks);
+
+
+        // ---------- Exam selected ----------
+
+        if (!examId) {
+            setNotice({
+                type: "error",
+                title: "No exam selected",
+                message:
+                    "Please select the examination this question belongs to."
+            });
+            return;
+        }
+
+
+        // ---------- Question text ----------
+
+        if (!questionText) {
+            setNotice({
+                type: "error",
+                title: "Question is empty",
+                message: "Please enter the question text."
+            });
+            return;
+        }
+
+
+        // ---------- Options ----------
+
+        const missingOption = ["A", "B", "C", "D"].find(
+            (key) => !options[key]
+        );
+
+        if (missingOption) {
+            setNotice({
+                type: "error",
+                title: `Option ${missingOption} is missing`,
+                message:
+                    `Please enter a value for option ${missingOption}.`
+            });
+            return;
+        }
+
+
+        const uniqueOptions = new Set(
+            Object.values(options).map(
+                (value) => value.toLowerCase()
+            )
+        );
+
+        if (uniqueOptions.size !== 4) {
+            setNotice({
+                type: "error",
+                title: "Duplicate options",
+                message:
+                    "All four answer options must be different from each other."
+            });
+            return;
+        }
+
+
+        // ---------- Correct answer ----------
+
+        if (!correctAnswer) {
+            setNotice({
+                type: "error",
+                title: "No correct answer selected",
+                message:
+                    "Please choose which option is the correct answer."
+            });
+            return;
+        }
+
+
+        if (!["A", "B", "C", "D"].includes(correctAnswer)) {
+            setNotice({
+                type: "error",
+                title: "Invalid correct answer",
+                message:
+                    "The correct answer must be one of A, B, C or D."
+            });
+            return;
+        }
+
+
+        // ---------- Marks ----------
+
+        if (marks === "" || marks === null || marks === undefined) {
+            setNotice({
+                type: "error",
+                title: "Marks missing",
+                message:
+                    "Please enter the marks for this question."
+            });
+            return;
+        }
+
+
+        if (!Number.isFinite(marksValue) || marksValue <= 0) {
+            setNotice({
+                type: "error",
+                title: "Invalid marks",
+                message:
+                    "Marks must be a number greater than 0."
+            });
+            return;
+        }
+
+
+        // ---------- Total marks criteria ----------
+        // The marks of every question must add up to the
+        // total marks set on the exam. Adding a question
+        // that would push the total above the exam total
+        // is not allowed.
+
+        const otherMarks = examQuestions
+            .filter((item) => item._id !== editingId)
+            .reduce(
+                (sum, item) =>
+                    sum + (Number(item.marks) || 0),
+                0
+            );
+
+        const projectedTotal = otherMarks + marksValue;
+
+        if (examTotalMarks > 0 && projectedTotal > examTotalMarks) {
+
+            const excess = projectedTotal - examTotalMarks;
+
+            setNotice({
+                type: "error",
+                title: "Total marks exceeded",
+                message:
+                    `The questions for "${selectedExam.examName}" would add up to ${projectedTotal} marks, but the exam total is ${examTotalMarks} marks. Reduce this question's marks by at least ${excess} so the totals match.`
+            });
+
             return;
         }
 
@@ -162,17 +394,12 @@ function QuestionManagement() {
 
                         body: JSON.stringify({
                             examId,
-                            question,
+                            question: questionText,
 
-                            options: {
-                                A: optionA,
-                                B: optionB,
-                                C: optionC,
-                                D: optionD,
-                            },
+                            options,
 
                             correctAnswer,
-                            marks: Number(marks),
+                            marks: marksValue,
                         }),
                     }
                 );
@@ -200,9 +427,13 @@ function QuestionManagement() {
                 );
 
 
-                alert(
-                    "Question updated successfully"
-                );
+                setNotice({
+                    type: "success",
+                    title: "Question updated",
+                    message:
+                        "The question was updated successfully." +
+                        getMarksFeedback(projectedTotal)
+                });
 
             }
 
@@ -223,17 +454,12 @@ function QuestionManagement() {
 
                         body: JSON.stringify({
                             examId,
-                            question,
+                            question: questionText,
 
-                            options: {
-                                A: optionA,
-                                B: optionB,
-                                C: optionC,
-                                D: optionD,
-                            },
+                            options,
 
                             correctAnswer,
-                            marks: Number(marks),
+                            marks: marksValue,
                         }),
                     }
                 );
@@ -258,14 +484,20 @@ function QuestionManagement() {
                 ]);
 
 
-                alert(
-                    "Question added successfully"
-                );
+                setNotice({
+                    type: "success",
+                    title: "Question added",
+                    message:
+                        "The question was added successfully. You can now add another question for the same exam." +
+                        getMarksFeedback(projectedTotal)
+                });
 
             }
 
 
-            clearForm();
+            // Keep the selected exam so the admin can add
+            // many questions for the same exam in one go.
+            clearForm({ keepExam: true });
 
         } catch (error) {
 
@@ -291,9 +523,12 @@ function QuestionManagement() {
     // CLEAR FORM
     // ==========================================
 
-    const clearForm = () => {
+    const clearForm = ({ keepExam = false } = {}) => {
 
-        setExamId("");
+        if (!keepExam) {
+            setExamId("");
+        }
+
         setQuestion("");
         setOptionA("");
         setOptionB("");
@@ -361,20 +596,17 @@ function QuestionManagement() {
     // DELETE QUESTION
     // ==========================================
 
-    const handleDelete = async (id) => {
+    const handleDelete = async () => {
 
-        const confirmDelete =
-            window.confirm(
-                "Are you sure you want to delete this question?"
-            );
-
-
-        if (!confirmDelete) {
+        if (!deleteTarget) {
             return;
         }
 
+        const id = deleteTarget;
 
         try {
+
+            setDeleting(true);
 
             const response = await fetch(
                 `http://localhost:5000/api/questions/${id}`,
@@ -405,9 +637,14 @@ function QuestionManagement() {
             );
 
 
-            alert(
-                "Question deleted successfully"
-            );
+            setDeleteTarget(null);
+
+            setNotice({
+                type: "success",
+                title: "Question deleted",
+                message:
+                    "The question was deleted successfully."
+            });
 
         } catch (error) {
 
@@ -416,37 +653,21 @@ function QuestionManagement() {
                 error
             );
 
-            alert(
-                "Unable to delete question"
-            );
+            setDeleteTarget(null);
+
+            setNotice({
+                type: "error",
+                title: "Delete failed",
+                message:
+                    error.message ||
+                    "Unable to delete question."
+            });
+
+        } finally {
+
+            setDeleting(false);
 
         }
-    };
-
-
-    // ==========================================
-    // GET EXAM NAME
-    // ==========================================
-
-    const getExamName = (item) => {
-
-        // If examId is populated
-        if (
-            item.examId &&
-            typeof item.examId === "object"
-        ) {
-            return item.examId.examName;
-        }
-
-        // If only exam ID exists
-        const exam = exams.find(
-            (exam) =>
-                exam._id === item.examId
-        );
-
-        return exam
-            ? exam.examName
-            : "Unknown Exam";
     };
 
 
@@ -490,11 +711,15 @@ function QuestionManagement() {
                         <div>
 
                             <strong>
-                                {questions.length}
+                                {selectedExam
+                                    ? examQuestions.length
+                                    : questions.length}
                             </strong>
 
                             <small>
-                                Total Questions
+                                {selectedExam
+                                    ? "Exam Questions"
+                                    : "Total Questions"}
                             </small>
 
                         </div>
@@ -836,7 +1061,7 @@ function QuestionManagement() {
                                 <button
                                     type="button"
                                     className="question-cancel-btn"
-                                    onClick={clearForm}
+                                    onClick={() => clearForm()}
                                 >
                                     Cancel
                                 </button>
@@ -887,25 +1112,105 @@ function QuestionManagement() {
                         <div>
 
                             <h2>
-                                All Questions
+                                {selectedExam
+                                    ? `${selectedExam.examName} Questions`
+                                    : "Questions"}
                             </h2>
 
                             <p>
-                                Manage questions created
-                                for your exams
+                                {selectedExam
+                                    ? "Questions created for the selected examination"
+                                    : "Select an examination above to view its questions"}
                             </p>
 
                         </div>
 
 
-                        <div className="question-list-badge">
-                            {questions.length} Questions
-                        </div>
+                        {selectedExam && (
+                            <div className="question-list-badge">
+                                {examQuestions.length}{" "}
+                                {examQuestions.length === 1
+                                    ? "Question"
+                                    : "Questions"}
+                            </div>
+                        )}
 
                     </div>
 
 
-                    {loading ? (
+                    {/* MARK CRITERIA */}
+
+                    {selectedExam && (
+                        <div
+                            className={
+                                `marks-criteria ${marksCriteriaStatus}`
+                            }
+                        >
+
+                            <div className="marks-criteria-text">
+
+                                <strong>
+                                    {marksCriteriaStatus === "matched"
+                                        ? "Marks criteria satisfied"
+                                        : marksCriteriaStatus === "over"
+                                        ? "Marks criteria not satisfied"
+                                        : "Marks criteria"}
+                                </strong>
+
+                                <p>
+                                    {getMarksCriteriaMessage()}
+                                </p>
+
+                            </div>
+
+
+                            <div className="marks-criteria-values">
+
+                                <div>
+                                    <span>
+                                        Questions Total
+                                    </span>
+                                    <strong>
+                                        {questionsTotalMarks}
+                                    </strong>
+                                </div>
+
+                                <div>
+                                    <span>
+                                        Exam Total
+                                    </span>
+                                    <strong>
+                                        {examTotalMarks}
+                                    </strong>
+                                </div>
+
+                            </div>
+
+                        </div>
+                    )}
+
+
+                    {!examId ? (
+
+                        <div className="question-empty-state">
+
+                            <div className="question-empty-icon">
+                                <QuestionIcon size={28} />
+                            </div>
+
+                            <h3>
+                                Select an examination
+                            </h3>
+
+                            <p>
+                                Choose an examination from the
+                                form above to view and manage
+                                the questions created for it.
+                            </p>
+
+                        </div>
+
+                    ) : loading ? (
 
                         <div className="question-empty-state">
 
@@ -924,7 +1229,7 @@ function QuestionManagement() {
 
                         </div>
 
-                    ) : questions.length === 0 ? (
+                    ) : examQuestions.length === 0 ? (
 
                         <div className="question-empty-state">
 
@@ -937,8 +1242,9 @@ function QuestionManagement() {
                             </h3>
 
                             <p>
-                                Add your first question
-                                using the form above.
+                                This examination has no questions
+                                yet. Add the first question using
+                                the form above.
                             </p>
 
                         </div>
@@ -947,7 +1253,7 @@ function QuestionManagement() {
 
                         <div className="question-cards">
 
-                            {questions.map(
+                            {examQuestions.map(
                                 (item, index) => (
 
                                     <div
@@ -969,11 +1275,10 @@ function QuestionManagement() {
 
                                                 <div className="question-card-meta">
 
-                                                    <span className="exam-tag">
-                                                        {" "}
-                                                        {getExamName(
-                                                            item
-                                                        )}
+                                                    <span className="question-index-tag">
+                                                        Question{" "}
+                                                        {index + 1} of{" "}
+                                                        {examQuestions.length}
                                                     </span>
 
                                                     <span className="marks-tag">
@@ -1126,7 +1431,7 @@ function QuestionManagement() {
                                                 <button
                                                     className="question-delete-btn"
                                                     onClick={() =>
-                                                        handleDelete(
+                                                        setDeleteTarget(
                                                             item._id
                                                         )
                                                     }
@@ -1149,6 +1454,30 @@ function QuestionManagement() {
                     )}
 
                 </section>
+
+
+                {/* DELETE CONFIRM POPUP */}
+
+                {deleteTarget && (
+                    <ConfirmModal
+                        title="Delete this question?"
+                        message="This question will be permanently removed. This action cannot be undone."
+                        confirmLabel="Yes, Delete"
+                        cancelLabel="Cancel"
+                        danger
+                        busy={deleting}
+                        onConfirm={handleDelete}
+                        onCancel={() => setDeleteTarget(null)}
+                    />
+                )}
+
+
+                {/* NOTICE POPUP */}
+
+                <NoticeModal
+                    notice={notice}
+                    onClose={() => setNotice(null)}
+                />
 
         </AdminLayout>
 

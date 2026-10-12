@@ -9,6 +9,11 @@ import {
     CheckIcon
 } from "./Icons";
 
+import {
+    getRecordTime,
+    formatRelativeTime
+} from "../utils/time";
+
 // =============================================
 // NOTIFICATION BELL
 // Shared by the admin and student layouts. It
@@ -18,44 +23,6 @@ import {
 // =============================================
 
 const BASE = "http://localhost:5000";
-
-function formatRelativeTime(date) {
-
-    if (!date) {
-        return "";
-    }
-
-    const value = new Date(date).getTime();
-
-    if (Number.isNaN(value)) {
-        return "";
-    }
-
-    const difference = Date.now() - value;
-
-    const minutes = Math.floor(difference / (1000 * 60));
-    const hours = Math.floor(difference / (1000 * 60 * 60));
-    const days = Math.floor(difference / (1000 * 60 * 60 * 24));
-
-    if (minutes < 1) {
-        return "Just now";
-    }
-
-    if (minutes < 60) {
-        return `${minutes}m ago`;
-    }
-
-    if (hours < 24) {
-        return `${hours}h ago`;
-    }
-
-    if (days < 7) {
-        return `${days}d ago`;
-    }
-
-    return new Date(date).toLocaleDateString();
-
-}
 
 function NotificationBell({ role }) {
 
@@ -99,15 +66,28 @@ function NotificationBell({ role }) {
                     ? await examsResponse.json()
                     : [];
 
-                exams.forEach((exam) => {
+                // Students are only told about exams whose
+                // questions are complete and publicly available.
+                const visibleExams =
+                    role === "student"
+                        ? exams.filter(
+                            (exam) => exam.isPublished === true
+                        )
+                        : exams;
+
+                visibleExams.forEach((exam) => {
 
                     collected.push({
                         id: `exam-${exam._id}`,
                         type: "exam",
                         icon: <ExamIcon size={16} />,
-                        title: "Exam available",
+                        title: !exam.isPublished
+                            ? "Exam draft"
+                            : exam.isUpcoming
+                            ? "Exam coming soon"
+                            : "Exam available",
                         text: exam.examName || "New examination",
-                        date: exam.createdDate || exam.examDate,
+                        date: getRecordTime(exam),
                         path:
                             role === "student"
                                 ? "/student-dashboard"
@@ -136,7 +116,7 @@ function NotificationBell({ role }) {
                             title: "Exam completed",
                             text:
                                 `${result.userId?.name || "A student"} completed ${result.examId?.examName || "an exam"}`,
-                            date: result.submittedAt,
+                            date: getRecordTime(result, ["submittedAt"]),
                             path: "/result-management"
                         });
 
@@ -160,7 +140,7 @@ function NotificationBell({ role }) {
                             title: "Student registered",
                             text:
                                 `${student.name || "A student"} joined the system`,
-                            date: student.createdAt,
+                            date: getRecordTime(student),
                             path: "/student-management"
                         });
 
@@ -185,7 +165,7 @@ function NotificationBell({ role }) {
                             title: "Result available",
                             text:
                                 `You scored ${result.percentage}% in ${result.examId?.examName || "an exam"}`,
-                            date: result.submittedAt,
+                            date: getRecordTime(result, ["submittedAt"]),
                             path: `/result/${result._id}`
                         });
 

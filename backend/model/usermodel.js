@@ -36,6 +36,6 @@ const userSchema = new mongoose.Schema({
         type: String,
         default: "Student"
     }
-});
+}, { timestamps: true });
 
 module.exports = mongoose.model("User", userSchema);

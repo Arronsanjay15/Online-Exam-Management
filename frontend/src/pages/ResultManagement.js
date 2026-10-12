@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import AdminLayout from "../components/AdminLayout";
+import NoticeModal from "../components/NoticeModal";
+import ConfirmModal from "../components/ConfirmModal";
 import {
     ResultsIcon,
     CheckIcon,
@@ -21,6 +23,11 @@ function ResultManagement() {
 
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
+
+    // Popups
+    const [notice, setNotice] = useState(null);
+    const [deleteTarget, setDeleteTarget] = useState(null);
+    const [deleting, setDeleting] = useState(false);
 
 
     // ==========================================
@@ -82,18 +89,17 @@ function ResultManagement() {
     // DELETE RESULT
     // ==========================================
 
-    const handleDelete = async (id) => {
+    const handleDelete = async () => {
 
-        const confirmed = window.confirm(
-            "Are you sure you want to delete this result?"
-        );
-
-        if (!confirmed) {
+        if (!deleteTarget) {
             return;
         }
 
+        const id = deleteTarget;
 
         try {
+
+            setDeleting(true);
 
             const response = await fetch(
                 `http://localhost:5000/api/results/${id}`,
@@ -125,14 +131,32 @@ function ResultManagement() {
             );
 
 
+            setDeleteTarget(null);
+
+            setNotice({
+                type: "success",
+                title: "Result deleted",
+                message: "The result was deleted successfully."
+            });
+
+
         } catch (error) {
 
             console.error(error);
 
-            alert(
-                error.message ||
-                "Unable to delete result."
-            );
+            setDeleteTarget(null);
+
+            setNotice({
+                type: "error",
+                title: "Delete failed",
+                message:
+                    error.message ||
+                    "Unable to delete result."
+            });
+
+        } finally {
+
+            setDeleting(false);
 
         }
 
@@ -746,7 +770,7 @@ function ResultManagement() {
                                                                 className="delete-result-button"
                                                                 title="Delete result"
                                                                 onClick={() =>
-                                                                    handleDelete(
+                                                                    setDeleteTarget(
                                                                         result._id
                                                                     )
                                                                 }
@@ -803,6 +827,30 @@ function ResultManagement() {
                             )}
 
                     </section>
+
+
+                    {/* DELETE CONFIRM POPUP */}
+
+                    {deleteTarget && (
+                        <ConfirmModal
+                            title="Delete this result?"
+                            message="The student result will be permanently removed. This action cannot be undone."
+                            confirmLabel="Yes, Delete"
+                            cancelLabel="Cancel"
+                            danger
+                            busy={deleting}
+                            onConfirm={handleDelete}
+                            onCancel={() => setDeleteTarget(null)}
+                        />
+                    )}
+
+
+                    {/* NOTICE POPUP */}
+
+                    <NoticeModal
+                        notice={notice}
+                        onClose={() => setNotice(null)}
+                    />
 
         </AdminLayout>
 

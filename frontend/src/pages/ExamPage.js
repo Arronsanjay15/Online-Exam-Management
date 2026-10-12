@@ -25,6 +25,8 @@ function ExamPage() {
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState("");
+    const [unavailable, setUnavailable] = useState(false);
+    const [upcoming, setUpcoming] = useState(false);
 
     // Popups
     const [showSubmitModal, setShowSubmitModal] = useState(false);
@@ -56,6 +58,8 @@ function ExamPage() {
         try {
 
             setLoading(true);
+            setUnavailable(false);
+            setUpcoming(false);
 
             // Get exam
             const examResponse = await fetch(
@@ -68,6 +72,22 @@ function ExamPage() {
                 throw new Error(
                     examData.message || "Unable to load exam"
                 );
+            }
+
+            // An exam only becomes available once its questions
+            // are complete. Block direct access to unpublished ones.
+            if (examData.isPublished === false) {
+                setExam(examData);
+                setUnavailable(true);
+                return;
+            }
+
+            // Even when the questions are complete, the exam must
+            // not be opened before its exam date.
+            if (examData.isUpcoming === true) {
+                setExam(examData);
+                setUpcoming(true);
+                return;
             }
 
             // Get questions
@@ -352,6 +372,75 @@ function ExamPage() {
 
                 <p>
                     {error}
+                </p>
+
+                <button
+                    onClick={() =>
+                        navigate("/student-dashboard")
+                    }
+                >
+                    Back to Dashboard
+                </button>
+
+            </div>
+        );
+
+    }
+
+
+    if (unavailable) {
+
+        return (
+            <div className="exam-page-message">
+
+                <div className="exam-loading-icon">
+                    <AlertIcon size={30} />
+                </div>
+
+                <h2>
+                    Exam Not Available Yet
+                </h2>
+
+                <p>
+                    {exam?.examName
+                        ? `"${exam.examName}" is not available right now because its questions have not been completed. Please check back later.`
+                        : "This exam is not available right now because its questions have not been completed. Please check back later."}
+                </p>
+
+                <button
+                    onClick={() =>
+                        navigate("/student-dashboard")
+                    }
+                >
+                    Back to Dashboard
+                </button>
+
+            </div>
+        );
+
+    }
+
+
+    if (upcoming) {
+
+        return (
+            <div className="exam-page-message">
+
+                <div className="exam-loading-icon">
+                    <ClockIcon size={30} />
+                </div>
+
+                <h2>
+                    {exam?.examName || "Examination"}
+                </h2>
+
+                <p>
+                    This exam is not open yet. It will be
+                    available on{" "}
+                    {exam?.examDate
+                        ? String(exam.examDate).substring(0, 10)
+                        : "the scheduled date"}
+                    .
                 </p>
 
                 <button

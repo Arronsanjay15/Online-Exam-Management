@@ -3,6 +3,7 @@ const router = express.Router();
 
 const User = require("../model/usermodel");
 const Login = require("../model/loginmodel");
+const Result = require("../model/resultmodel");
 
 // Fields a profile is allowed to contain. This prevents a
 // client from changing the username or escalating to Admin.
@@ -223,7 +224,7 @@ router.put("/username/:username", async (req, res) => {
     }
 });
 
-// Delete a user and the matching login account
+// Delete a user, the matching login account and their results
 router.delete("/:id", async (req, res) => {
     try {
         const user = await User.findByIdAndDelete(req.params.id);
@@ -234,12 +235,19 @@ router.delete("/:id", async (req, res) => {
             });
         }
 
-        // Keep the login collection in sync so the account
-        // cannot sign in again after being removed.
-        await Login.deleteOne({ username: user.username });
+        // Remove everything that belongs to this user:
+        //   - the login account, so it cannot sign in again
+        //   - their exam results (score, percentage, answers,
+        //     etc.), so no orphaned data is left behind
+        const [loginRemoval, resultRemoval] = await Promise.all([
+            Login.deleteOne({ username: user.username }),
+            Result.deleteMany({ userId: user._id })
+        ]);
 
         res.status(200).json({
-            message: "User deleted successfully"
+            message: "User deleted successfully",
+            deletedLogin: loginRemoval.deletedCount,
+            deletedResults: resultRemoval.deletedCount
         });
     } catch (error) {
         res.status(500).json({

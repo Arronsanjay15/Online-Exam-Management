@@ -17,7 +17,7 @@ const loginSchema = new mongoose.Schema({
     type: String,
     required: true
   }
-});
+}, { timestamps: true });
 
 const Login = mongoose.model("Login", loginSchema);
 

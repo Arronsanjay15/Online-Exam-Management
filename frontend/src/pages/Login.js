@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import NoticeModal from "../components/NoticeModal";
 
 import {
     UserIcon,
@@ -21,6 +22,9 @@ function Login() {
     const [password, setPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
+
+    // Popup
+    const [notice, setNotice] = useState(null);
 
 
     // Already logged in -> go straight to the dashboard
@@ -66,7 +70,11 @@ function Login() {
             console.log("Login response:", data);
 
             if (!response.ok) {
-                alert(data.message || "Login failed");
+                setNotice({
+                    type: "error",
+                    title: "Login failed",
+                    message: data.message || "Invalid username or password."
+                });
                 setLoading(false);
                 return;
             }
@@ -85,9 +93,12 @@ function Login() {
 
             console.error("Login error:", error);
 
-            alert(
-                "Cannot connect to server. Make sure the backend is running."
-            );
+            setNotice({
+                type: "error",
+                title: "Connection error",
+                message:
+                    "Cannot connect to server. Make sure the backend is running."
+            });
 
         }
 
@@ -321,6 +332,14 @@ function Login() {
                 </div>
 
             </div>
+
+
+            {/* NOTICE POPUP */}
+
+            <NoticeModal
+                notice={notice}
+                onClose={() => setNotice(null)}
+            />
 
         </div>
     );

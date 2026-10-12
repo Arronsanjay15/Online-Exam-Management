@@ -592,6 +592,55 @@ body {
 }
 
 
+/* Publish status */
+
+.exam-publish-status {
+    margin-left: auto;
+    align-self: flex-start;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+}
+
+.exam-publish-status.published {
+    background: #ecfdf5;
+    color: #047857;
+}
+
+.exam-publish-status.draft {
+    background: #f1f5f9;
+    color: #64748b;
+}
+
+.exam-publish-status.upcoming {
+    background: #fff7ed;
+    color: #c2410c;
+}
+
+.exam-publish-note {
+    margin: -8px 0 16px;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.5;
+}
+
+.exam-publish-note.published {
+    color: #047857;
+}
+
+.exam-publish-note.draft {
+    color: #64748b;
+}
+
+.exam-publish-note.upcoming {
+    color: #b45309;
+}
+
+
 /* Card Buttons */
 
 .exam-card-actions {
@@ -2220,6 +2269,113 @@ body {
     border-radius: 20px;
     font-size: 12px;
     font-weight: 700;
+}
+
+
+/* ================= MARKS CRITERIA ================= */
+
+.marks-criteria {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+    flex-wrap: wrap;
+    padding: 16px 18px;
+    border-radius: 13px;
+    border: 1px solid #e5e7eb;
+    background: #f8fafc;
+    margin-bottom: 20px;
+}
+
+.marks-criteria.matched {
+    background: #ecfdf5;
+    border-color: #a7f3d0;
+}
+
+.marks-criteria.short {
+    background: #fffbeb;
+    border-color: #fde68a;
+}
+
+.marks-criteria.over {
+    background: #fef2f2;
+    border-color: #fecaca;
+}
+
+.marks-criteria-text strong {
+    display: block;
+    font-size: 14px;
+    color: #111827;
+    margin-bottom: 4px;
+}
+
+.marks-criteria.matched .marks-criteria-text strong {
+    color: #047857;
+}
+
+.marks-criteria.short .marks-criteria-text strong {
+    color: #b45309;
+}
+
+.marks-criteria.over .marks-criteria-text strong {
+    color: #b91c1c;
+}
+
+.marks-criteria-text p {
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.5;
+    color: #4b5563;
+    max-width: 620px;
+}
+
+.marks-criteria-values {
+    display: flex;
+    gap: 12px;
+}
+
+.marks-criteria-values div {
+    min-width: 110px;
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 10px 14px;
+    text-align: center;
+}
+
+.marks-criteria-values span {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: #6b7280;
+    margin-bottom: 3px;
+}
+
+.marks-criteria-values strong {
+    font-size: 20px;
+    color: #111827;
+}
+
+.marks-criteria.matched .marks-criteria-values div:first-child strong {
+    color: #059669;
+}
+
+.marks-criteria.over .marks-criteria-values div:first-child strong {
+    color: #dc2626;
+}
+
+
+/* ================= QUESTION INDEX TAG ================= */
+
+.question-index-tag {
+    background: #f0ebff;
+    color: #6545df;
+    padding: 5px 9px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 600;
 }
 
 
@@ -5800,6 +5956,344 @@ body {
     background: #eef2ff;
 
     color: #4f46e5;
+}
+
+
+/* ANSWER REVIEW */
+
+.answer-review-summary {
+    display: grid;
+
+    grid-template-columns: repeat(3, 1fr);
+
+    gap: 12px;
+
+    margin-bottom: 20px;
+}
+
+
+.answer-review-stat {
+    display: flex;
+    flex-direction: column;
+
+    align-items: center;
+
+    gap: 4px;
+
+    padding: 14px;
+
+    border-radius: 10px;
+
+    border: 1px solid #e5e7eb;
+
+    background: #f8fafc;
+}
+
+
+.answer-review-stat strong {
+    font-size: 22px;
+
+    color: #111827;
+}
+
+
+.answer-review-stat span {
+    font-size: 12px;
+
+    color: #6b7280;
+}
+
+
+.answer-review-stat.correct {
+    background: #ecfdf5;
+
+    border-color: #a7f3d0;
+}
+
+
+.answer-review-stat.correct strong {
+    color: #059669;
+}
+
+
+.answer-review-stat.wrong {
+    background: #fef2f2;
+
+    border-color: #fecaca;
+}
+
+
+.answer-review-stat.wrong strong {
+    color: #dc2626;
+}
+
+
+.answer-review-list {
+    display: flex;
+    flex-direction: column;
+
+    gap: 16px;
+}
+
+
+.answer-review-item {
+    border: 1px solid #e5e7eb;
+
+    border-left: 4px solid #cbd5e1;
+
+    border-radius: 12px;
+
+    padding: 18px;
+
+    background: #ffffff;
+}
+
+
+.answer-review-item.correct {
+    border-left-color: #10b981;
+}
+
+
+.answer-review-item.wrong {
+    border-left-color: #ef4444;
+}
+
+
+.answer-review-item.skipped {
+    border-left-color: #f59e0b;
+}
+
+
+.answer-review-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+
+    gap: 12px;
+
+    margin-bottom: 10px;
+}
+
+
+.answer-review-number {
+    font-size: 12px;
+
+    font-weight: 600;
+
+    text-transform: uppercase;
+
+    letter-spacing: 0.03em;
+
+    color: #6b7280;
+}
+
+
+.answer-review-badge {
+    font-size: 11px;
+
+    font-weight: 700;
+
+    padding: 4px 10px;
+
+    border-radius: 999px;
+
+    text-transform: uppercase;
+
+    letter-spacing: 0.02em;
+}
+
+
+.answer-review-badge.correct {
+    background: #ecfdf5;
+
+    color: #059669;
+}
+
+
+.answer-review-badge.wrong {
+    background: #fef2f2;
+
+    color: #dc2626;
+}
+
+
+.answer-review-badge.skipped {
+    background: #fffbeb;
+
+    color: #b45309;
+}
+
+
+.answer-review-item h3 {
+    margin: 0 0 14px;
+
+    font-size: 15px;
+
+    color: #111827;
+
+    line-height: 1.5;
+}
+
+
+.answer-review-options {
+    display: grid;
+
+    grid-template-columns: repeat(2, 1fr);
+
+    gap: 10px;
+
+    margin-bottom: 14px;
+}
+
+
+.answer-review-option {
+    display: flex;
+    align-items: center;
+
+    gap: 10px;
+
+    padding: 10px 12px;
+
+    border: 1px solid #e5e7eb;
+
+    border-radius: 9px;
+
+    background: #ffffff;
+
+    font-size: 13px;
+
+    color: #374151;
+}
+
+
+.answer-review-option.selected {
+    background: #f1f5f9;
+}
+
+
+.answer-review-option.correct {
+    background: #ecfdf5;
+
+    border-color: #a7f3d0;
+
+    color: #065f46;
+}
+
+
+.answer-review-option.wrong {
+    background: #fef2f2;
+
+    border-color: #fecaca;
+
+    color: #991b1b;
+}
+
+
+.answer-review-letter {
+    width: 24px;
+    height: 24px;
+
+    flex-shrink: 0;
+
+    border-radius: 6px;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    font-weight: 700;
+    font-size: 12px;
+
+    background: #eef2ff;
+
+    color: #4f46e5;
+}
+
+
+.answer-review-option.correct .answer-review-letter {
+    background: #d1fae5;
+
+    color: #059669;
+}
+
+
+.answer-review-option.wrong .answer-review-letter {
+    background: #fee2e2;
+
+    color: #dc2626;
+}
+
+
+.answer-review-text {
+    flex: 1;
+}
+
+
+.answer-review-mark {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    flex-shrink: 0;
+}
+
+
+.answer-review-mark.correct {
+    color: #059669;
+}
+
+
+.answer-review-mark.wrong {
+    color: #dc2626;
+}
+
+
+.answer-review-footer {
+    display: flex;
+    flex-wrap: wrap;
+
+    gap: 18px;
+
+    padding-top: 12px;
+
+    border-top: 1px dashed #e5e7eb;
+
+    font-size: 12px;
+
+    color: #6b7280;
+}
+
+
+.answer-review-footer strong {
+    color: #111827;
+}
+
+
+.answer-review-footer strong.correct {
+    color: #059669;
+}
+
+
+.answer-review-footer strong.wrong {
+    color: #dc2626;
+}
+
+
+.answer-review-footer strong.skipped {
+    color: #b45309;
+}
+
+
+@media (max-width: 640px) {
+
+    .answer-review-summary {
+        grid-template-columns: 1fr;
+    }
+
+    .answer-review-options {
+        grid-template-columns: 1fr;
+    }
+
 }
 
 
@@ -9457,6 +9951,24 @@ body {
 .exam-status.completed {
     background: #eff6ff;
     color: #2563eb;
+}
+
+/* Exam that is not open yet */
+.exam-status.upcoming {
+    background: #fff7ed;
+    color: #c2410c;
+}
+
+.exam-upcoming-note {
+    margin-top: 14px;
+    padding: 12px 14px;
+    border-radius: 10px;
+    background: #fff7ed;
+    border: 1px solid #fed7aa;
+    color: #9a3412;
+    font-size: 12px;
+    font-weight: 600;
+    line-height: 1.6;
 }
 
 /* =========================================================

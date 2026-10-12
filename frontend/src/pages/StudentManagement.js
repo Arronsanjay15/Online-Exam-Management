@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import AdminLayout from "../components/AdminLayout";
+import NoticeModal from "../components/NoticeModal";
+import ConfirmModal from "../components/ConfirmModal";
 import {
     SearchIcon,
     TrashIcon,
@@ -13,6 +15,11 @@ function StudentManagement() {
     const [search, setSearch] = useState("");
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
+
+    // Popups
+    const [notice, setNotice] = useState(null);
+    const [deleteTarget, setDeleteTarget] = useState(null);
+    const [deleting, setDeleting] = useState(false);
 
     // =========================================
     // LOAD STUDENTS FROM MONGODB
@@ -52,17 +59,17 @@ function StudentManagement() {
     // =========================================
     // DELETE STUDENT
     // =========================================
-    const handleDelete = async (id) => {
+    const handleDelete = async () => {
 
-        const confirmDelete = window.confirm(
-            "Are you sure you want to delete this student?"
-        );
-
-        if (!confirmDelete) {
+        if (!deleteTarget) {
             return;
         }
 
+        const id = deleteTarget;
+
         try {
+
+            setDeleting(true);
 
             const response = await fetch(
                 `http://localhost:5000/api/users/${id}`,
@@ -86,15 +93,40 @@ function StudentManagement() {
                 )
             );
 
-            alert("Student deleted successfully.");
+            setDeleteTarget(null);
+
+            const deletedResults =
+                Number(data.deletedResults) || 0;
+
+            setNotice({
+                type: "success",
+                title: "Student deleted",
+                message:
+                    data.deletedResults !== undefined
+                        ? `The student was deleted successfully, along with ${deletedResults} exam result${
+                              deletedResults === 1 ? "" : "s"
+                          }.`
+                        : "The student was deleted successfully, including their exam results."
+            });
 
         } catch (error) {
 
             console.error("Error deleting student:", error);
 
-            alert(
-                "Unable to delete student. Please try again."
-            );
+            setDeleteTarget(null);
+
+            setNotice({
+                type: "error",
+                title: "Delete failed",
+                message:
+                    error.message ||
+                    "Unable to delete student. Please try again."
+            });
+
+        } finally {
+
+            setDeleting(false);
+
         }
     };
 
@@ -413,7 +445,7 @@ function StudentManagement() {
                                                     <button
                                                         className="student-delete-btn"
                                                         onClick={() =>
-                                                            handleDelete(
+                                                            setDeleteTarget(
                                                                 student._id
                                                             )
                                                         }
@@ -438,6 +470,29 @@ function StudentManagement() {
                     )}
 
                 </div>
+
+                {/* DELETE CONFIRM POPUP */}
+
+                {deleteTarget && (
+                    <ConfirmModal
+                        title="Delete this student?"
+                        message="Deleting this student will also remove their account and all of their exam results. This action cannot be undone."
+                        confirmLabel="Yes, Delete"
+                        cancelLabel="Cancel"
+                        danger
+                        busy={deleting}
+                        onConfirm={handleDelete}
+                        onCancel={() => setDeleteTarget(null)}
+                    />
+                )}
+
+
+                {/* NOTICE POPUP */}
+
+                <NoticeModal
+                    notice={notice}
+                    onClose={() => setNotice(null)}
+                />
 
         </AdminLayout>
 

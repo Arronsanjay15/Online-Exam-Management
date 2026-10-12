@@ -12,6 +12,10 @@ import {
     ClockIcon
 } from "../components/Icons";
 
+import {
+    getRecordTime
+} from "../utils/time";
+
 function AdminDashboard() {
 
     const navigate = useNavigate();
@@ -221,11 +225,8 @@ function AdminDashboard() {
                     `${result.userId?.name || "Student"} completed ${result.examId?.examName || "an exam"}`,
 
                 date:
-                    result.submittedAt
-                        ? new Date(
-                            result.submittedAt
-                        )
-                        : new Date(0)
+                    getRecordTime(result, ["submittedAt"]) ||
+                    new Date(0)
 
             });
 
@@ -252,11 +253,8 @@ function AdminDashboard() {
                     `${exam.examName} is available in the system`,
 
                 date:
-                    exam.createdDate
-                        ? new Date(
-                            exam.createdDate
-                        )
-                        : new Date(0)
+                    getRecordTime(exam) ||
+                    new Date(0)
 
             });
 
@@ -283,11 +281,8 @@ function AdminDashboard() {
                     `${student.name || "A student"} is registered in the system`,
 
                 date:
-                    student.createdAt
-                        ? new Date(
-                            student.createdAt
-                        )
-                        : new Date(0)
+                    getRecordTime(student) ||
+                    new Date(0)
 
             });
 
