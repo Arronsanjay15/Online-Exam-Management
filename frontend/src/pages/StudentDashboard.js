@@ -447,6 +447,8 @@ function StudentDashboard() {
                                                 className={
                                                     completed
                                                         ? "exam-status completed"
+                                                        : exam.isEnded
+                                                        ? "exam-status ended"
                                                         : upcoming
                                                         ? "exam-status upcoming"
                                                         : "exam-status"
@@ -454,6 +456,8 @@ function StudentDashboard() {
                                             >
                                                 {completed
                                                     ? "Completed"
+                                                    : exam.isEnded
+                                                    ? "Ended"
                                                     : upcoming
                                                     ? "Coming Soon"
                                                     : "Available"}
@@ -467,14 +471,25 @@ function StudentDashboard() {
                                         </h3>
 
 
-                                        {upcoming ? (
+                                        {upcoming && !exam.isEnded ? (
 
                                             <p className="exam-upcoming-note">
                                                 Not open yet. This exam
-                                                will be available on{" "}
+                                                will be available from{" "}
                                                 {getExamDate(
-                                                    exam.examDate
+                                                    exam.examStartDateTime || exam.examDate
                                                 )}
+                                                {(exam.examEndDateTime || exam.examEndDate) && (exam.examEndDateTime !== (exam.examStartDateTime || exam.examDate))
+                                                    ? ` to ${getExamDate(exam.examEndDateTime || exam.examEndDate)}`
+                                                    : ""}
+                                                .
+                                            </p>
+
+                                        ) : exam.isEnded && !completed ? (
+
+                                            <p className="exam-upcoming-note">
+                                                This exam ended on{" "}
+                                                {getExamDate(exam.examEndDateTime || exam.examEndDate || exam.examDate)}
                                                 .
                                             </p>
 
@@ -546,7 +561,7 @@ function StudentDashboard() {
 
                                                     <strong>
                                                         {getExamDate(
-                                                            exam.examDate
+                                                            exam.examStartDateTime || exam.examDate
                                                         )}
                                                     </strong>
 

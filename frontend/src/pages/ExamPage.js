@@ -83,10 +83,18 @@ function ExamPage() {
             }
 
             // Even when the questions are complete, the exam must
-            // not be opened before its exam date.
+            // not be opened before its start time.
             if (examData.isUpcoming === true) {
                 setExam(examData);
                 setUpcoming(true);
+                return;
+            }
+
+            // Block if exam has ended
+            if (examData.isEnded === true) {
+                setExam(examData);
+                setUnavailable(true);
+                setError("This exam has ended and is no longer available.");
                 return;
             }
 
@@ -436,10 +444,17 @@ function ExamPage() {
 
                 <p>
                     This exam is not open yet. It will be
-                    available on{" "}
-                    {exam?.examDate
+                    available from{" "}
+                    {exam?.examStartDateTime
+                        ? String(exam.examStartDateTime).replace('T', ' ')
+                        : exam?.examDate
                         ? String(exam.examDate).substring(0, 10)
-                        : "the scheduled date"}
+                        : "the scheduled start time"}
+                    {exam?.examEndDateTime || exam?.examEndDate
+                        ? ` to ${exam.examEndDateTime
+                            ? String(exam.examEndDateTime).replace('T', ' ')
+                            : String(exam.examEndDate).substring(0, 10)}`
+                        : ""}
                     .
                 </p>
 

@@ -20,7 +20,11 @@ function ExamManagement() {
     const [description, setDescription] = useState("");
     const [duration, setDuration] = useState("");
     const [totalMarks, setTotalMarks] = useState("");
-    const [examDate, setExamDate] = useState("");
+    const [examDate, setExamDate] = useState(""); // legacy start date
+    const [examStartDateTime, setExamStartDateTime] = useState("");
+    const [examEndDateTime, setExamEndDateTime] = useState("");
+    const [examEndDate, setExamEndDate] = useState(""); // legacy
+    const [publishAt, setPublishAt] = useState("");
 
     const [editingId, setEditingId] = useState(null);
 
@@ -212,12 +216,38 @@ function ExamManagement() {
 
         // ---------- Exam date ----------
 
-        if (!examDate) {
+        const hasStart = examStartDateTime || examDate;
+        const hasEnd = examEndDateTime || examEndDate;
+
+        if (!hasStart) {
             setNotice({
                 type: "error",
-                title: "Exam date required",
+                title: "Exam start time required",
                 message:
-                    "Please choose the date of the examination."
+                    "Please choose the start date/time of the examination."
+            });
+            return;
+        }
+
+        if (!hasEnd) {
+            setNotice({
+                type: "error",
+                title: "Exam end time required",
+                message:
+                    "Please choose the end date/time of the examination."
+            });
+            return;
+        }
+
+        // Validate start < end
+        const startVal = examStartDateTime || examDate;
+        const endVal = examEndDateTime || examEndDate;
+        if (endVal < startVal) {
+            setNotice({
+                type: "error",
+                title: "Invalid exam times",
+                message:
+                    "Exam end time cannot be earlier than exam start time."
             });
             return;
         }
@@ -248,7 +278,11 @@ function ExamManagement() {
                             description: descriptionText,
                             duration: durationValue,
                             totalMarks: totalMarksValue,
-                            examDate,
+                            examDate: examStartDateTime || examDate,
+                            examStartDateTime: examStartDateTime || examDate,
+                            examEndDateTime: examEndDateTime || examEndDate,
+                            examEndDate: examEndDateTime ? examEndDateTime.split('T')[0] : examEndDate || (examStartDateTime || examDate).split('T')[0],
+                            publishAt: publishAt || null,
                         }),
                     }
                 );
@@ -314,7 +348,11 @@ function ExamManagement() {
                             description: descriptionText,
                             duration: durationValue,
                             totalMarks: totalMarksValue,
-                            examDate,
+                            examDate: examStartDateTime || examDate,
+                            examStartDateTime: examStartDateTime || examDate,
+                            examEndDateTime: examEndDateTime || examEndDate,
+                            examEndDate: examEndDateTime ? examEndDateTime.split('T')[0] : examEndDate || (examStartDateTime || examDate).split('T')[0],
+                            publishAt: publishAt || null,
                             createdDate:
                                 new Date()
                                     .toISOString()
@@ -394,6 +432,10 @@ function ExamManagement() {
         setDuration(defaults.defaultExamDuration);
         setTotalMarks(defaults.defaultTotalMarks);
         setExamDate("");
+        setExamStartDateTime("");
+        setExamEndDateTime("");
+        setExamEndDate("");
+        setPublishAt("");
         setEditingId(null);
 
     };
@@ -423,11 +465,26 @@ function ExamManagement() {
             exam.totalMarks || ""
         );
 
+        // Prefill with new datetime fields if available, else legacy
+        setExamStartDateTime(
+            exam.examStartDateTime || (exam.examDate && !exam.examDate.includes('T') ? exam.examDate + 'T00:00' : exam.examDate) || ""
+        );
+        setExamEndDateTime(
+            exam.examEndDateTime || (exam.examEndDate && !exam.examEndDate.includes('T') ? exam.examEndDate + 'T23:59' : exam.examEndDate) || (exam.examDate && !exam.examDate.includes('T') ? exam.examDate + 'T23:59' : exam.examDate) || ""
+        );
         setExamDate(
             exam.examDate
                 ? exam.examDate.substring(0, 10)
                 : ""
         );
+        setExamEndDate(
+            exam.examEndDate
+                ? exam.examEndDate.substring(0, 10)
+                : exam.examDate
+                ? exam.examDate.substring(0, 10)
+                : ""
+        );
+        setPublishAt(exam.publishAt || "");
 
 
         window.scrollTo({
@@ -754,24 +811,68 @@ function ExamManagement() {
                             </div>
 
 
-                            {/* EXAM DATE */}
+                            {/* EXAM START DATE & TIME */}
 
                             <div className="input-group">
 
                                 <label>
-                                    Exam Date
+                                    Exam Start Date & Time
                                     <span>*</span>
                                 </label>
 
                                 <input
-                                    type="date"
-                                    value={examDate}
+                                    type="datetime-local"
+                                    value={examStartDateTime}
                                     onChange={(e) =>
-                                        setExamDate(
+                                        setExamStartDateTime(
                                             e.target.value
                                         )
                                     }
                                 />
+
+                            </div>
+
+                            {/* EXAM END DATE & TIME */}
+
+                            <div className="input-group">
+
+                                <label>
+                                    Exam End Date & Time
+                                    <span>*</span>
+                                </label>
+
+                                <input
+                                    type="datetime-local"
+                                    value={examEndDateTime}
+                                    onChange={(e) =>
+                                        setExamEndDateTime(
+                                            e.target.value
+                                        )
+                                    }
+                                />
+
+                            </div>
+
+                            {/* PUBLISH AT (Optional) */}
+
+                            <div className="input-group full-width">
+
+                                <label>
+                                    Publish At (Optional)
+                                </label>
+
+                                <input
+                                    type="datetime-local"
+                                    value={publishAt}
+                                    onChange={(e) =>
+                                        setPublishAt(
+                                            e.target.value
+                                        )
+                                    }
+                                />
+                                <small style={{ fontSize: '11px', color: '#666', marginTop: '4px', display: 'block' }}>
+                                    If questions not complete by this time, exam won't auto-publish.
+                                </small>
 
                             </div>
 
@@ -949,14 +1050,18 @@ function ExamManagement() {
                                         <span
                                             className={
                                                 exam.isPublished
-                                                    ? exam.isUpcoming
+                                                    ? exam.isEnded
+                                                        ? "exam-publish-status ended"
+                                                        : exam.isUpcoming
                                                         ? "exam-publish-status upcoming"
                                                         : "exam-publish-status published"
                                                     : "exam-publish-status draft"
                                             }
                                         >
                                             {exam.isPublished
-                                                ? exam.isUpcoming
+                                                ? exam.isEnded
+                                                    ? "Ended"
+                                                    : exam.isUpcoming
                                                     ? "Coming Soon"
                                                     : "Published"
                                                 : "Draft"}
@@ -1009,16 +1114,24 @@ function ExamManagement() {
                                             </span>
 
                                             <strong>
-                                                {exam.examDate
-                                                    ? exam.examDate.substring(
-                                                          0,
-                                                          10
-                                                      )
+                                                {exam.examStartDateTime
+                                                    ? (String(exam.examStartDateTime).includes('T')
+                                                        ? String(exam.examStartDateTime).substring(0, 16).replace('T', ' ')
+                                                        : String(exam.examStartDateTime).substring(0, 10))
+                                                    : exam.examDate
+                                                    ? exam.examDate.substring(0, 10)
+                                                    : ""}
+                                                {(exam.examEndDateTime || exam.examEndDate)
+                                                    ? ` to ${exam.examEndDateTime
+                                                        ? (String(exam.examEndDateTime).includes('T')
+                                                            ? String(exam.examEndDateTime).substring(0, 16).replace('T', ' ')
+                                                            : String(exam.examEndDateTime).substring(0, 10))
+                                                        : String(exam.examEndDate).substring(0, 10)}`
                                                     : ""}
                                             </strong>
 
                                             <small>
-                                                exam date
+                                                exam window
                                             </small>
 
                                         </div>
@@ -1029,7 +1142,9 @@ function ExamManagement() {
                                     <p
                                         className={
                                             exam.isPublished
-                                                ? exam.isUpcoming
+                                                ? exam.isEnded
+                                                    ? "exam-publish-note ended"
+                                                    : exam.isUpcoming
                                                     ? "exam-publish-note upcoming"
                                                     : "exam-publish-note published"
                                                 : "exam-publish-note draft"
@@ -1037,15 +1152,24 @@ function ExamManagement() {
                                     >
 
                                         {exam.isPublished
-                                            ? exam.isUpcoming
-                                                ? `Questions complete — opens to students on ${
-                                                      exam.examDate
-                                                          ? String(
-                                                                exam.examDate
-                                                            ).substring(
-                                                                0,
-                                                                10
-                                                            )
+                                            ? exam.isEnded
+                                                ? `Questions complete — exam ended on ${
+                                                      exam.examEndDateTime
+                                                          ? (String(exam.examEndDateTime).includes('T')
+                                                              ? String(exam.examEndDateTime).substring(0, 16).replace('T', ' ')
+                                                              : String(exam.examEndDateTime).substring(0, 10))
+                                                          : exam.examEndDate
+                                                          ? String(exam.examEndDate).substring(0, 10)
+                                                          : "the scheduled end date"
+                                                  }`
+                                                : exam.isUpcoming
+                                                ? `Questions complete — opens to students from ${
+                                                      exam.examStartDateTime
+                                                          ? (String(exam.examStartDateTime).includes('T')
+                                                              ? String(exam.examStartDateTime).substring(0, 16).replace('T', ' ')
+                                                              : String(exam.examStartDateTime).substring(0, 10))
+                                                          : exam.examDate
+                                                          ? String(exam.examDate).substring(0, 10)
                                                           : "the scheduled date"
                                                   }`
                                                 : "Questions complete — available to students"
