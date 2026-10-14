@@ -12,6 +12,8 @@ import {
     GraduationIcon
 } from "../components/Icons";
 
+import { formatDateTime as formatDisplayDateTime } from "../utils/time";
+
 function ResultPage() {
 
     const { id } = useParams();
@@ -129,7 +131,7 @@ function ResultPage() {
             return "Not available";
         }
 
-        return new Date(date).toLocaleString();
+        return formatDisplayDateTime(date) || "Not available";
 
     };
 

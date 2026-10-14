@@ -847,6 +847,7 @@ function QuestionManagement() {
                                     )
                                 }
                                 placeholder="Enter your question here..."
+                                maxLength={1000}
                                 rows="4"
                             />
 
@@ -888,6 +889,7 @@ function QuestionManagement() {
                                         )
                                     }
                                     placeholder="Enter option A"
+                                    maxLength={300}
                                 />
 
                             </div>
@@ -916,6 +918,7 @@ function QuestionManagement() {
                                         )
                                     }
                                     placeholder="Enter option B"
+                                    maxLength={300}
                                 />
 
                             </div>
@@ -944,6 +947,7 @@ function QuestionManagement() {
                                         )
                                     }
                                     placeholder="Enter option C"
+                                    maxLength={300}
                                 />
 
                             </div>
@@ -972,6 +976,7 @@ function QuestionManagement() {
                                         )
                                     }
                                     placeholder="Enter option D"
+                                    maxLength={300}
                                 />
 
                             </div>
@@ -1035,6 +1040,8 @@ function QuestionManagement() {
                                 <input
                                     type="number"
                                     min="1"
+                                    max="1000"
+                                    step="1"
                                     value={marks}
                                     onChange={(e) =>
                                         setMarks(

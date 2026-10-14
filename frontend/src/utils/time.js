@@ -51,6 +51,96 @@ function toDate(value) {
 }
 
 
+// Returns today's date as a plain "YYYY-MM-DD" string.
+// Used as the `min` value of date inputs so previous
+// (past) dates cannot be selected.
+export function todayDateValue() {
+
+    const now = new Date();
+
+    const year = now.getFullYear();
+
+    const month = String(now.getMonth() + 1).padStart(2, "0");
+
+    const day = String(now.getDate()).padStart(2, "0");
+
+    return `${year}-${month}-${day}`;
+
+}
+
+
+// Formats a date-like value as DD/MM/YYYY so dates read
+// the same everywhere in the app.
+//
+// A plain "YYYY-MM-DD" string is read literally so a
+// timezone offset can never shift it to the previous or
+// next day. Anything with a time is parsed into a Date so
+// its date and time stay consistent with each other.
+export function formatDate(value) {
+
+    if (!value) {
+        return "";
+    }
+
+    if (typeof value === "string") {
+
+        const match = value.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+
+        if (match) {
+            return `${match[3]}/${match[2]}/${match[1]}`;
+        }
+
+    }
+
+    const date = toDate(value);
+
+    if (!date) {
+        return "";
+    }
+
+    const day = String(date.getDate()).padStart(2, "0");
+
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+
+    return `${day}/${month}/${date.getFullYear()}`;
+
+}
+
+
+// Formats a date-like value as DD/MM/YYYY, HH:mm.
+// Values without a time part (such as "YYYY-MM-DD")
+// fall back to the plain DD/MM/YYYY date.
+export function formatDateTime(value) {
+
+    if (!value) {
+        return "";
+    }
+
+    const dateLabel = formatDate(value);
+
+    const hasTime =
+        value instanceof Date ||
+        (typeof value === "string" && value.includes("T"));
+
+    if (!hasTime) {
+        return dateLabel;
+    }
+
+    const date = toDate(value);
+
+    if (!date) {
+        return dateLabel;
+    }
+
+    const hours = String(date.getHours()).padStart(2, "0");
+
+    const minutes = String(date.getMinutes()).padStart(2, "0");
+
+    return `${dateLabel}, ${hours}:${minutes}`;
+
+}
+
+
 // Finds the most trustworthy timestamp for a record.
 //
 // `preferred` lists event fields (such as a result's
@@ -119,6 +209,6 @@ export function formatRelativeTime(value) {
         return `${days}d ago`;
     }
 
-    return date.toLocaleDateString();
+    return formatDate(date);
 
 }

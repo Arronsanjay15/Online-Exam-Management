@@ -18,6 +18,17 @@ import {
     RefreshIcon
 } from "../components/Icons";
 
+import {
+    isValidEmail,
+    isValidName,
+    isValidPassword,
+    isValidPhone,
+    isValidUsername,
+    sanitizePhone,
+    PASSWORD_MIN_LENGTH,
+    PHONE_LENGTH
+} from "../utils/validation";
+
 function Register() {
 
     const navigate = useNavigate();
@@ -34,6 +45,9 @@ function Register() {
     const [showPassword, setShowPassword] = useState(false);
     const [loading, setLoading] = useState(false);
     const [registrationOpen, setRegistrationOpen] = useState(true);
+
+    // Inline validation messages, keyed by field name.
+    const [fieldErrors, setFieldErrors] = useState({});
 
     // Live username availability: idle | invalid | checking |
     // available | taken
@@ -73,7 +87,7 @@ function Register() {
             return;
         }
 
-        if (username.length < 3) {
+        if (!isValidUsername(username)) {
             setUsernameStatus("invalid");
             return;
         }
@@ -116,10 +130,49 @@ function Register() {
 
 
     const handleChange = (e) => {
+
+        const { name, value } = e.target;
+
+        // Phone numbers are digits only, capped at 10.
+        const nextValue =
+            name === "phoneNumber" ? sanitizePhone(value) : value;
+
         setFormData({
             ...formData,
-            [e.target.name]: e.target.value
+            [name]: nextValue
         });
+
+        // Clear the field's error as soon as the user edits it.
+        setFieldErrors((prev) => ({ ...prev, [name]: "" }));
+    };
+
+
+    // Checks every field against its real-world rule.
+    const validateForm = () => {
+
+        const errors = {};
+
+        if (!isValidName(formData.name)) {
+            errors.name =
+                "Please enter a valid name (2-60 characters).";
+        }
+
+        if (!isValidEmail(formData.email)) {
+            errors.email =
+                "Please enter a valid email address, e.g. name@example.com.";
+        }
+
+        if (!isValidPhone(formData.phoneNumber)) {
+            errors.phoneNumber =
+                `Phone number must be exactly ${PHONE_LENGTH} digits.`;
+        }
+
+        if (!isValidPassword(formData.password)) {
+            errors.password =
+                `Password must be at least ${PASSWORD_MIN_LENGTH} characters.`;
+        }
+
+        return errors;
     };
 
 
@@ -127,6 +180,13 @@ function Register() {
     const handleSubmit = (e) => {
 
         e.preventDefault();
+
+        const errors = validateForm();
+
+        if (Object.keys(errors).length > 0) {
+            setFieldErrors(errors);
+            return;
+        }
 
         if (usernameStatus === "taken") {
 
@@ -144,9 +204,9 @@ function Register() {
 
             setResultModal({
                 type: "error",
-                title: "Username too short",
+                title: "Invalid username",
                 message:
-                    "Please choose a username with at least 3 characters."
+                    "Usernames must be 3-30 characters using letters, numbers, dot, underscore or hyphen."
             });
 
             return;
@@ -389,10 +449,23 @@ function Register() {
                                         value={formData.name}
                                         onChange={handleChange}
                                         placeholder="Enter your full name"
+                                        maxLength={60}
+                                        autoComplete="name"
+                                        className={
+                                            fieldErrors.name
+                                                ? "input-invalid"
+                                                : ""
+                                        }
                                         required
                                     />
 
                                 </div>
+
+                                {fieldErrors.name && (
+                                    <small className="field-error">
+                                        {fieldErrors.name}
+                                    </small>
+                                )}
 
                             </div>
 
@@ -417,10 +490,23 @@ function Register() {
                                         value={formData.email}
                                         onChange={handleChange}
                                         placeholder="Enter your email"
+                                        maxLength={254}
+                                        autoComplete="email"
+                                        className={
+                                            fieldErrors.email
+                                                ? "input-invalid"
+                                                : ""
+                                        }
                                         required
                                     />
 
                                 </div>
+
+                                {fieldErrors.email && (
+                                    <small className="field-error">
+                                        {fieldErrors.email}
+                                    </small>
+                                )}
 
                             </div>
 
@@ -440,15 +526,29 @@ function Register() {
                                     </span>
 
                                     <input
-                                        type="text"
+                                        type="tel"
                                         name="phoneNumber"
                                         value={formData.phoneNumber}
                                         onChange={handleChange}
                                         placeholder="Enter phone number"
+                                        inputMode="numeric"
+                                        maxLength={10}
+                                        autoComplete="tel"
+                                        className={
+                                            fieldErrors.phoneNumber
+                                                ? "input-invalid"
+                                                : ""
+                                        }
                                         required
                                     />
 
                                 </div>
+
+                                {fieldErrors.phoneNumber && (
+                                    <small className="field-error">
+                                        {fieldErrors.phoneNumber}
+                                    </small>
+                                )}
 
                             </div>
 
@@ -517,6 +617,14 @@ function Register() {
                                         value={formData.username}
                                         onChange={handleChange}
                                         placeholder="Choose a username"
+                                        maxLength={30}
+                                        autoComplete="username"
+                                        className={
+                                            usernameStatus === "invalid" ||
+                                            usernameStatus === "taken"
+                                                ? "input-invalid"
+                                                : ""
+                                        }
                                         required
                                     />
 
@@ -549,7 +657,7 @@ function Register() {
                                 {usernameStatus === "invalid" && (
                                     <small className="username-status invalid">
                                         <AlertIcon size={13} />
-                                        Use at least 3 characters
+                                        Use 3-30 letters, numbers, or . _ -
                                     </small>
                                 )}
 
@@ -605,6 +713,13 @@ function Register() {
                                         value={formData.password}
                                         onChange={handleChange}
                                         placeholder="Create a password"
+                                        maxLength={64}
+                                        autoComplete="new-password"
+                                        className={
+                                            fieldErrors.password
+                                                ? "input-invalid"
+                                                : ""
+                                        }
                                         required
                                     />
 
@@ -623,6 +738,12 @@ function Register() {
                                     </button>
 
                                 </div>
+
+                                {fieldErrors.password && (
+                                    <small className="field-error">
+                                        {fieldErrors.password}
+                                    </small>
+                                )}
 
                             </div>
 

@@ -5,6 +5,8 @@ const User = require("../model/usermodel");
 const Login = require("../model/loginmodel");
 const Result = require("../model/resultmodel");
 
+const { validateProfileFields } = require("../utils/validate");
+
 // Fields a profile is allowed to contain. This prevents a
 // client from changing the username or escalating to Admin.
 const PROFILE_FIELDS = [
@@ -72,8 +74,17 @@ router.post("/", async (req, res) => {
             });
         }
 
+        const profileFields = pickProfileFields(req.body);
+        const profileErrors = validateProfileFields(profileFields);
+
+        if (profileErrors.length > 0) {
+            return res.status(400).json({
+                message: profileErrors[0]
+            });
+        }
+
         const user = new User({
-            ...pickProfileFields(req.body),
+            ...profileFields,
             username,
             usertype: usertype || "Student"
         });
@@ -163,9 +174,18 @@ router.get("/:id", async (req, res) => {
 // Update a profile (name, email, phone, gender only)
 router.put("/:id", async (req, res) => {
     try {
+        const profileFields = pickProfileFields(req.body);
+        const profileErrors = validateProfileFields(profileFields);
+
+        if (profileErrors.length > 0) {
+            return res.status(400).json({
+                message: profileErrors[0]
+            });
+        }
+
         const user = await User.findByIdAndUpdate(
             req.params.id,
-            { $set: pickProfileFields(req.body) },
+            { $set: profileFields },
             { returnDocument: "after", runValidators: true }
         );
 

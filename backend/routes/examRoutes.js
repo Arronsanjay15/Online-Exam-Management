@@ -59,6 +59,29 @@ const parseExamDateTime = (value) => {
 };
 
 
+// The publish input is time only ("HH:mm"). It applies to the
+// exam's start date, so "10:00" on a start date of 2026-11-01
+// means the exam may auto-publish at 2026-11-01 10:00. Older
+// records may still hold a full datetime, which is used as-is.
+const parsePublishTime = (value, startTime) => {
+    if (!value) return null;
+    const str = String(value);
+
+    if (str.includes('T')) {
+        return new Date(str);
+    }
+
+    if (/^\d{1,2}:\d{2}$/.test(str)) {
+        const base = startTime ? new Date(startTime) : new Date();
+        const [hours, minutes] = str.split(':').map(Number);
+        base.setHours(hours, minutes, 0, 0);
+        return base;
+    }
+
+    return parseExamDateTime(str);
+};
+
+
 // An exam is only publicly available once its questions
 // have been completed (marks add up to the exam total) AND
 // the current time is between exam start and end times.
@@ -75,12 +98,23 @@ const withPublishStatus = (exam, stats) => {
 
     const totalMarks = Number(exam.totalMarks) || 0;
 
+    // Why the questions are not ready yet (if they aren't), so the
+    // admin can be told exactly what is missing.
+    const questionsMissing = questionCount === 0;
+
+    const marksNotSatisfied =
+        !questionsMissing &&
+        (
+            totalMarks <= 0 ||
+            Math.abs(
+                Number(questionsTotalMarks) - totalMarks
+            ) >= 0.001
+        );
+
+    // Questions are ready when at least one exists and the marks
+    // add up to the exam total.
     const isPublishedQuestions =
-        questionCount > 0 &&
-        totalMarks > 0 &&
-        Math.abs(
-            Number(questionsTotalMarks) - totalMarks
-        ) < 0.001;
+        !questionsMissing && !marksNotSatisfied;
 
     const now = getNowDate();
 
@@ -106,27 +140,51 @@ const withPublishStatus = (exam, stats) => {
     const isUpcoming = startTime ? startTime > now : false;
     const isEnded = endTime ? endTime < now : false;
 
-    // Check scheduled publish time if set
-    const publishTime = parseExamDateTime(exam.publishAt);
-    const publishTimeReached = publishTime ? publishTime <= now : true;
+    // Scheduled publish time. A time-only value ("HH:mm") is
+    // anchored to the exam start date. No value means "publish as
+    // soon as the questions are ready".
+    const publishTime = parsePublishTime(exam.publishAt, startTime);
+    const hasPublishTime = publishTime !== null;
+    const publishTimeReached = hasPublishTime ? publishTime <= now : true;
 
-    // Exam is available if questions are complete, publish time reached, started, and not ended
-    // If publishAt is specified but questions not complete by publish time, exam is NOT auto-published
-    // This means isAvailable remains false until admin completes questions - even if publish time passed
-    let isAvailable;
-    if (publishTime) {
-        // If scheduled publish time is set, check both conditions
-        isAvailable = isPublishedQuestions && publishTimeReached && !isUpcoming && !isEnded;
-    } else {
-        isAvailable = isPublishedQuestions && !isUpcoming && !isEnded;
-    }
+    const withinWindow = !isUpcoming && !isEnded;
 
-    // Also track if it's published (questions complete) regardless of time
+    // The exam is only open to students when the questions are
+    // ready, the publish time (if any) has been reached, and the
+    // current time is inside the exam window.
+    const isAvailable =
+        isPublishedQuestions && publishTimeReached && withinWindow;
+
+    // Questions are ready and a publish time is still in the
+    // future: the exam is scheduled but not released yet.
+    const isPublishPending =
+        isPublishedQuestions &&
+        hasPublishTime &&
+        !publishTimeReached &&
+        !isEnded;
+
+    // Whether the questions are complete (kept under the old name
+    // for the existing student visibility rules).
     const isPublished = isPublishedQuestions;
 
-    // Check if exam should have been published but wasn't due to incomplete questions
-    const publishMissed = publishTime && publishTimeReached && !isPublishedQuestions;
-    const missedPublishReason = publishMissed ? 'Questions not completed by publish time' : null;
+    // The publish time came and went but the exam could not be
+    // released because the questions are not ready. The admin is
+    // notified about this specific exam.
+    const publishMissed =
+        hasPublishTime && publishTimeReached && !isPublishedQuestions;
+
+    let missedPublishReason = null;
+
+    if (publishMissed) {
+        if (questionsMissing) {
+            missedPublishReason = "no questions have been added yet";
+        } else if (marksNotSatisfied) {
+            missedPublishReason =
+                `question marks total ${questionsTotalMarks}, but the exam total is ${totalMarks}`;
+        } else {
+            missedPublishReason = "the exam is not ready";
+        }
+    }
 
     return {
         ...exam,
@@ -134,9 +192,13 @@ const withPublishStatus = (exam, stats) => {
         questionsTotalMarks,
         isPublished,
         isPublishedQuestions,
+        questionsMissing,
+        marksNotSatisfied,
         isUpcoming,
         isEnded,
         isAvailable,
+        isPublishPending,
+        publishTime: publishTime ? publishTime.toISOString() : null,
         publishTimeReached,
         canAutoPublish: isPublishedQuestions && publishTimeReached,
         publishMissed,

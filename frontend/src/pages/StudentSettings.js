@@ -9,6 +9,16 @@ import {
     AlertIcon
 } from "../components/Icons";
 
+import {
+    isValidEmail,
+    isValidName,
+    isValidPassword,
+    isValidPhone,
+    sanitizePhone,
+    PASSWORD_MIN_LENGTH,
+    PHONE_LENGTH
+} from "../utils/validation";
+
 function StudentSettings() {
     const navigate = useNavigate();
     const username = localStorage.getItem("username") || "";
@@ -32,6 +42,10 @@ function StudentSettings() {
     const [success, setSuccess] = useState("");
     const [pwdError, setPwdError] = useState("");
     const [pwdSuccess, setPwdSuccess] = useState("");
+
+    // Inline validation messages, keyed by field name.
+    const [profileFieldErrors, setProfileFieldErrors] = useState({});
+    const [pwdFieldErrors, setPwdFieldErrors] = useState({});
 
     useEffect(() => {
         if (!userId || !username) {
@@ -68,20 +82,54 @@ function StudentSettings() {
 
     const handleProfileChange = (e) => {
         const { name, value } = e.target;
-        setProfile((prev) => ({ ...prev, [name]: value }));
+        const nextValue =
+            name === "phoneNumber" ? sanitizePhone(value) : value;
+        setProfile((prev) => ({ ...prev, [name]: nextValue }));
+        setProfileFieldErrors((prev) => ({ ...prev, [name]: "" }));
     };
 
     const handlePasswordChange = (e) => {
         const { name, value } = e.target;
         setPasswordForm((prev) => ({ ...prev, [name]: value }));
+        setPwdFieldErrors((prev) => ({ ...prev, [name]: "" }));
     };
 
     const updateProfile = async (e) => {
         e.preventDefault();
+
+        const errors = {};
+
+        if (!isValidName(profile.name)) {
+            errors.name =
+                "Please enter a valid name (2-60 characters).";
+        }
+
+        if (!isValidEmail(profile.email)) {
+            errors.email =
+                "Please enter a valid email address, e.g. name@example.com.";
+        }
+
+        if (!isValidPhone(profile.phoneNumber)) {
+            errors.phoneNumber =
+                `Phone number must be exactly ${PHONE_LENGTH} digits.`;
+        }
+
+        if (!profile.gender) {
+            errors.gender = "Please select a gender.";
+        }
+
+        if (Object.keys(errors).length > 0) {
+            setProfileFieldErrors(errors);
+            setError("");
+            setSuccess("");
+            return;
+        }
+
         try {
             setSaving(true);
             setError("");
             setSuccess("");
+            setProfileFieldErrors({});
             const res = await fetch(
                 `http://localhost:5000/api/users/${userId}`,
                 {
@@ -110,16 +158,35 @@ function StudentSettings() {
 
     const updatePassword = async (e) => {
         e.preventDefault();
+
+        // Validate before sending anything to the API.
+        const errors = {};
+
+        if (!passwordForm.currentPassword) {
+            errors.currentPassword = "Enter your current password.";
+        }
+
+        if (!isValidPassword(passwordForm.newPassword)) {
+            errors.newPassword =
+                `New password must be at least ${PASSWORD_MIN_LENGTH} characters.`;
+        }
+
+        if (passwordForm.confirmPassword !== passwordForm.newPassword) {
+            errors.confirmPassword = "New passwords do not match.";
+        }
+
+        if (Object.keys(errors).length > 0) {
+            setPwdFieldErrors(errors);
+            setPwdError("");
+            setPwdSuccess("");
+            return;
+        }
+
         try {
             setPwdSaving(true);
             setPwdError("");
             setPwdSuccess("");
-            if (passwordForm.newPassword !== passwordForm.confirmPassword) {
-                throw new Error("New passwords do not match");
-            }
-            if (passwordForm.newPassword.length < 4) {
-                throw new Error("New password must be at least 4 characters");
-            }
+            setPwdFieldErrors({});
             const res = await fetch(
                 "http://localhost:5000/api/login/password",
                 {
@@ -204,8 +271,20 @@ function StudentSettings() {
                                         name="name"
                                         value={profile.name}
                                         onChange={handleProfileChange}
+                                        maxLength={60}
+                                        autoComplete="name"
+                                        className={
+                                            profileFieldErrors.name
+                                                ? "input-invalid"
+                                                : ""
+                                        }
                                         required
                                     />
+                                    {profileFieldErrors.name && (
+                                        <small className="field-error">
+                                            {profileFieldErrors.name}
+                                        </small>
+                                    )}
                                 </div>
                                 <div className="form-row">
                                     <label>Email Address</label>
@@ -214,18 +293,43 @@ function StudentSettings() {
                                         name="email"
                                         value={profile.email}
                                         onChange={handleProfileChange}
+                                        maxLength={254}
+                                        autoComplete="email"
+                                        className={
+                                            profileFieldErrors.email
+                                                ? "input-invalid"
+                                                : ""
+                                        }
                                         required
                                     />
+                                    {profileFieldErrors.email && (
+                                        <small className="field-error">
+                                            {profileFieldErrors.email}
+                                        </small>
+                                    )}
                                 </div>
                                 <div className="form-row">
                                     <label>Phone Number</label>
                                     <input
-                                        type="text"
+                                        type="tel"
                                         name="phoneNumber"
                                         value={profile.phoneNumber}
                                         onChange={handleProfileChange}
+                                        inputMode="numeric"
+                                        maxLength={10}
+                                        autoComplete="tel"
+                                        className={
+                                            profileFieldErrors.phoneNumber
+                                                ? "input-invalid"
+                                                : ""
+                                        }
                                         required
                                     />
+                                    {profileFieldErrors.phoneNumber && (
+                                        <small className="field-error">
+                                            {profileFieldErrors.phoneNumber}
+                                        </small>
+                                    )}
                                 </div>
                                 <div className="form-row">
                                     <label>Gender</label>
@@ -233,6 +337,11 @@ function StudentSettings() {
                                         name="gender"
                                         value={profile.gender}
                                         onChange={handleProfileChange}
+                                        className={
+                                            profileFieldErrors.gender
+                                                ? "input-invalid"
+                                                : ""
+                                        }
                                         required
                                     >
                                         <option value="">Select Gender</option>
@@ -240,6 +349,11 @@ function StudentSettings() {
                                         <option value="Female">Female</option>
                                         <option value="Other">Other</option>
                                     </select>
+                                    {profileFieldErrors.gender && (
+                                        <small className="field-error">
+                                            {profileFieldErrors.gender}
+                                        </small>
+                                    )}
                                 </div>
                                 <button
                                     type="submit"
@@ -286,8 +400,20 @@ function StudentSettings() {
                                         name="currentPassword"
                                         value={passwordForm.currentPassword}
                                         onChange={handlePasswordChange}
+                                        maxLength={64}
+                                        autoComplete="current-password"
+                                        className={
+                                            pwdFieldErrors.currentPassword
+                                                ? "input-invalid"
+                                                : ""
+                                        }
                                         required
                                     />
+                                    {pwdFieldErrors.currentPassword && (
+                                        <small className="field-error">
+                                            {pwdFieldErrors.currentPassword}
+                                        </small>
+                                    )}
                                 </div>
                                 <div className="form-row">
                                     <label>New Password</label>
@@ -296,8 +422,20 @@ function StudentSettings() {
                                         name="newPassword"
                                         value={passwordForm.newPassword}
                                         onChange={handlePasswordChange}
+                                        maxLength={64}
+                                        autoComplete="new-password"
+                                        className={
+                                            pwdFieldErrors.newPassword
+                                                ? "input-invalid"
+                                                : ""
+                                        }
                                         required
                                     />
+                                    {pwdFieldErrors.newPassword && (
+                                        <small className="field-error">
+                                            {pwdFieldErrors.newPassword}
+                                        </small>
+                                    )}
                                 </div>
                                 <div className="form-row">
                                     <label>Confirm New Password</label>
@@ -306,8 +444,20 @@ function StudentSettings() {
                                         name="confirmPassword"
                                         value={passwordForm.confirmPassword}
                                         onChange={handlePasswordChange}
+                                        maxLength={64}
+                                        autoComplete="new-password"
+                                        className={
+                                            pwdFieldErrors.confirmPassword
+                                                ? "input-invalid"
+                                                : ""
+                                        }
                                         required
                                     />
+                                    {pwdFieldErrors.confirmPassword && (
+                                        <small className="field-error">
+                                            {pwdFieldErrors.confirmPassword}
+                                        </small>
+                                    )}
                                 </div>
                                 <button
                                     type="submit"

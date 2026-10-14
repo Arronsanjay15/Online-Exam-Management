@@ -9,8 +9,11 @@ import {
     AwardIcon,
     CalendarIcon,
     GraduationIcon,
-    CheckIcon
+    CheckIcon,
+    SearchIcon
 } from "../components/Icons";
+
+import { formatDate, formatDateTime } from "../utils/time";
 
 function StudentDashboard() {
 
@@ -18,6 +21,10 @@ function StudentDashboard() {
 
     const [exams, setExams] = useState([]);
     const [results, setResults] = useState([]);
+
+    // Exam list controls
+    const [examSearch, setExamSearch] = useState("");
+    const [examStatusFilter, setExamStatusFilter] = useState("All");
 
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
@@ -105,11 +112,7 @@ function StudentDashboard() {
 
     const getExamDate = (date) => {
 
-        if (!date) {
-            return "Not specified";
-        }
-
-        return date.substring(0, 10);
+        return formatDate(date) || "Not specified";
 
     };
 
@@ -157,6 +160,33 @@ function StudentDashboard() {
         );
 
 
+    // The state shown on an exam card. Kept in one place so the
+    // status filter always matches the badge the student sees.
+    // A "publishing soon" exam is grouped under "Upcoming" since
+    // it is simply not open yet.
+    const getExamState = (exam) => {
+
+        if (hasCompleted(exam._id)) {
+            return "Completed";
+        }
+
+        if (exam.isEnded === true) {
+            return "Ended";
+        }
+
+        if (exam.isUpcoming === true) {
+            return "Upcoming";
+        }
+
+        if (exam.isPublishPending === true) {
+            return "Upcoming";
+        }
+
+        return "Available";
+
+    };
+
+
     // Exams whose questions are complete are visible to
     // students. Exams whose exam date has not arrived yet are
     // still listed, but only as "coming soon" and they cannot
@@ -168,6 +198,29 @@ function StudentDashboard() {
     const availableCount = visibleExams.filter(
         (exam) => exam.isAvailable === true
     ).length;
+
+
+    // Narrow the visible exams down using the search box and the
+    // status filter.
+    const examSearchText = examSearch.trim().toLowerCase();
+
+    const filteredExams = visibleExams.filter((exam) => {
+
+        const matchesSearch = (exam.examName || "")
+            .toLowerCase()
+            .includes(examSearchText);
+
+        if (!matchesSearch) {
+            return false;
+        }
+
+        if (examStatusFilter === "All") {
+            return true;
+        }
+
+        return getExamState(exam) === examStatusFilter;
+
+    });
 
 
     const startExam = (examId) => {
@@ -382,6 +435,71 @@ function StudentDashboard() {
                 </div>
 
 
+                {/* SEARCH + STATUS FILTER */}
+
+                {!loading &&
+                    !error &&
+                    visibleExams.length > 0 && (
+
+                        <div className="exam-toolbar">
+
+                            <div className="exam-search">
+
+                                <span>
+                                    <SearchIcon size={18} />
+                                </span>
+
+                                <input
+                                    type="text"
+                                    placeholder="Search exams by name..."
+                                    value={examSearch}
+                                    onChange={(e) =>
+                                        setExamSearch(
+                                            e.target.value
+                                        )
+                                    }
+                                />
+
+                            </div>
+
+
+                            <select
+                                className="exam-filter"
+                                value={examStatusFilter}
+                                onChange={(e) =>
+                                    setExamStatusFilter(
+                                        e.target.value
+                                    )
+                                }
+                            >
+
+                                <option value="All">
+                                    All Exams
+                                </option>
+
+                                <option value="Available">
+                                    Available
+                                </option>
+
+                                <option value="Upcoming">
+                                    Upcoming
+                                </option>
+
+                                <option value="Completed">
+                                    Completed
+                                </option>
+
+                                <option value="Ended">
+                                    Ended
+                                </option>
+
+                            </select>
+
+                        </div>
+
+                    )}
+
+
                 {loading && (
 
                     <div className="student-message">
@@ -418,17 +536,49 @@ function StudentDashboard() {
 
                 {!loading &&
                     !error &&
-                    visibleExams.length > 0 && (
+                    visibleExams.length > 0 &&
+                    filteredExams.length === 0 && (
+
+                        <div className="student-empty">
+
+                            <div className="student-empty-icon">
+                                <SearchIcon size={28} />
+                            </div>
+
+                            <h3>
+                                No matching exams
+                            </h3>
+
+                            <p>
+                                No exams match your search or
+                                filter. Try a different name or
+                                status.
+                            </p>
+
+                        </div>
+
+                    )}
+
+
+                {!loading &&
+                    !error &&
+                    filteredExams.length > 0 && (
 
                         <div className="student-exam-grid">
 
-                            {visibleExams.map((exam) => {
+                            {filteredExams.map((exam) => {
 
                                 const completed =
                                     hasCompleted(exam._id);
 
                                 const upcoming =
                                     exam.isUpcoming === true;
+
+                                // Questions are ready but the
+                                // scheduled publish time has not
+                                // arrived yet.
+                                const pendingPublish =
+                                    exam.isPublishPending === true;
 
                                 return (
 
@@ -451,6 +601,8 @@ function StudentDashboard() {
                                                         ? "exam-status ended"
                                                         : upcoming
                                                         ? "exam-status upcoming"
+                                                        : pendingPublish
+                                                        ? "exam-status upcoming"
                                                         : "exam-status"
                                                 }
                                             >
@@ -460,6 +612,8 @@ function StudentDashboard() {
                                                     ? "Ended"
                                                     : upcoming
                                                     ? "Coming Soon"
+                                                    : pendingPublish
+                                                    ? "Publishing Soon"
                                                     : "Available"}
                                             </span>
 
@@ -485,7 +639,18 @@ function StudentDashboard() {
                                                 .
                                             </p>
 
-                                        ) : exam.isEnded && !completed ? (
+                                        ) : pendingPublish && !exam.isEnded ? (
+
+                                            <p className="exam-upcoming-note">
+                                                Questions are complete. This
+                                                exam will be published at{" "}
+                                                {exam.publishTime
+                                                    ? formatDateTime(exam.publishTime)
+                                                    : "the scheduled time"}
+                                                . Please check back then.
+                                            </p>
+
+                                        ) : exam.isEnded ? (
 
                                             <p className="exam-upcoming-note">
                                                 This exam ended on{" "}

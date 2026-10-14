@@ -473,6 +473,79 @@ body {
 }
 
 
+/* Search + filter toolbar
+
+   Shared by the admin exam list and the student exam
+   grid so exams can be narrowed down by name / status. */
+
+.exam-toolbar {
+    display: flex;
+    gap: 13px;
+    padding: 14px 16px;
+    margin-bottom: 20px;
+    background: #fafbfc;
+    border: 1px solid #eef0f3;
+    border-radius: 12px;
+}
+
+.exam-search {
+    flex: 1;
+    height: 43px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 0 13px;
+    background: white;
+    border: 1px solid #e1e5eb;
+    border-radius: 9px;
+}
+
+.exam-search span {
+    display: flex;
+    align-items: center;
+    color: #9ca3af;
+}
+
+.exam-search input {
+    flex: 1;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-size: 13px;
+    color: #111827;
+}
+
+.exam-search input::placeholder {
+    color: #9ca3af;
+}
+
+.exam-filter {
+    width: 185px;
+    height: 43px;
+    padding: 0 12px;
+    background: white;
+    border: 1px solid #e1e5eb;
+    border-radius: 9px;
+    outline: none;
+    color: #374151;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+
+@media (max-width: 640px) {
+
+    .exam-toolbar {
+        flex-direction: column;
+    }
+
+    .exam-filter {
+        width: 100%;
+    }
+
+}
+
+
 /* Empty State */
 
 .empty-state {
@@ -621,6 +694,21 @@ body {
     color: #c2410c;
 }
 
+.exam-publish-status.ended {
+    background: #fef2f2;
+    color: #b91c1c;
+}
+
+.exam-publish-status.scheduled {
+    background: #eef2ff;
+    color: #4338ca;
+}
+
+.exam-publish-status.missed {
+    background: #fef2f2;
+    color: #dc2626;
+}
+
 .exam-publish-note {
     margin: -8px 0 16px;
     font-size: 12px;
@@ -638,6 +726,18 @@ body {
 
 .exam-publish-note.upcoming {
     color: #b45309;
+}
+
+.exam-publish-note.ended {
+    color: #b91c1c;
+}
+
+.exam-publish-note.scheduled {
+    color: #4338ca;
+}
+
+.exam-publish-note.missed {
+    color: #dc2626;
 }
 
 
@@ -3823,6 +3923,19 @@ body {
     background: transparent;
     cursor: pointer;
     font-size: 16px;
+}
+
+
+/* Hide the browser's own password reveal / clear controls
+   (Edge and IE inject an eye inside password fields) so the
+   app's toggle is the only eye the user sees. */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear {
+    display: none;
+}
+input::-ms-reveal,
+input::-ms-clear {
+    display: none;
 }
 
 
@@ -10246,6 +10359,25 @@ body {
     color: #dc2626;
 }
 
+/* =========================================================
+   INLINE FIELD VALIDATION
+========================================================= */
+
+.field-error {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 6px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #dc2626;
+}
+
+.input-invalid {
+    border-color: #dc2626 !important;
+    box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12) !important;
+}
+
 .spin {
     animation: spin 0.9s linear infinite;
 }
@@ -10671,6 +10803,11 @@ body {
 .notification-item-icon.student {
     background: #ecfdf5;
     color: #059669;
+}
+
+.notification-item-icon.warning {
+    background: #fef2f2;
+    color: #dc2626;
 }
 
 .notification-item-text {

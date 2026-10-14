@@ -6,7 +6,8 @@ import {
     ResultsIcon,
     ExamIcon,
     StudentsIcon,
-    CheckIcon
+    CheckIcon,
+    AlertIcon
 } from "./Icons";
 
 import {
@@ -83,6 +84,8 @@ function NotificationBell({ role }) {
                         icon: <ExamIcon size={16} />,
                         title: !exam.isPublished
                             ? "Exam draft"
+                            : exam.isPublishPending
+                            ? "Exam publishing soon"
                             : exam.isUpcoming
                             ? "Exam coming soon"
                             : "Exam available",
@@ -98,6 +101,28 @@ function NotificationBell({ role }) {
 
 
                 if (role === "admin") {
+
+                    // Warn the admin about exams whose scheduled
+                    // publish time passed without the questions
+                    // being ready (incomplete questions or marks).
+                    exams
+                        .filter((exam) => exam.publishMissed === true)
+                        .forEach((exam) => {
+
+                            collected.push({
+                                id: `exam-publish-missed-${exam._id}`,
+                                type: "warning",
+                                icon: <AlertIcon size={16} />,
+                                title: "Publish time missed",
+                                text:
+                                    `"${exam.examName || "An exam"}" was not published — ${exam.missedPublishReason || "the questions are not ready"}`,
+                                date:
+                                    exam.publishTime ||
+                                    getRecordTime(exam),
+                                path: "/exam-management"
+                            });
+
+                        });
 
                     const resultsResponse = await fetch(
                         `${BASE}/api/results`

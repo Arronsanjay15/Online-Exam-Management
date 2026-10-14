@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import NoticeModal from "../components/NoticeModal";
 
@@ -27,19 +27,10 @@ function Login() {
     const [notice, setNotice] = useState(null);
 
 
-    // Already logged in -> go straight to the dashboard
-    useEffect(() => {
-
-        const usertype =
-            (localStorage.getItem("usertype") || "").toLowerCase();
-
-        if (usertype === "admin") {
-            navigate("/admin-dashboard", { replace: true });
-        } else if (usertype === "student") {
-            navigate("/student-dashboard", { replace: true });
-        }
-
-    }, [navigate]);
+    // The login page is always shown when the app is opened, even
+    // if a session is already stored. Only signing in here moves
+    // the user into a dashboard. Refreshing a dashboard keeps the
+    // session (the layout guards read it from localStorage).
 
     const handleLogin = async (e) => {
 
@@ -225,6 +216,8 @@ function Login() {
                                         setUsername(e.target.value)
                                     }
                                     placeholder="Enter your username"
+                                    maxLength={30}
+                                    autoComplete="username"
                                     required
                                 />
 
@@ -258,6 +251,8 @@ function Login() {
                                         setPassword(e.target.value)
                                     }
                                     placeholder="Enter your password"
+                                    maxLength={64}
+                                    autoComplete="current-password"
                                     required
                                 />
 

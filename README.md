@@ -16,16 +16,17 @@ React 19 · Express 5 · MongoDB · Node 18+
 
 ExamPro is a full-stack MERN application. Admins build exams and question sets, students sit timed exams, and every attempt is scored, stored and open to review.
 
-It includes separate Admin and Student dashboards, a notification bell, exam availability gating, in-app popups instead of native browser dialogs, and a full answer-review screen after each attempt.
+It includes separate Admin and Student dashboards, a notification bell, exam availability gating, searchable and filterable exam lists, use-case input validation, in-app popups instead of native browser dialogs, and a full answer-review screen after each attempt.
 
 ### How it works
 
 | Step | Who | What happens |
 | :--: | --- | --- |
-| 1 | Admin | Creates an exam with a duration, total marks, a start and end date/time, and an optional publish time. |
+| 1 | Admin | Creates an exam with a duration, total marks, an **exam start date**, an end date/time, and an optional **publish time**. |
 | 2 | Admin | Adds questions until their marks add up to the exam's total. Only then is the exam **published**. |
-| 3 | Student | Registers and sees published exams. Future exams appear as *Coming Soon*. Takes the exam under a countdown. |
+| 3 | Student | Registers and sees published exams. Future exams appear as *Coming Soon*, and a scheduled one appears as *Publishing Soon*. Takes the exam under a countdown. |
 | 4 | System | On submit, or when time runs out, the attempt is scored and saved. The student can review every question, including the correct answer for the ones they missed. |
+| 5 | System | Publishes an exam once its questions are complete and it is inside its window — at the publish time if one was set. If the questions are not ready by then, the exam stays unpublished and the admin is notified. |
 
 <br>
 
@@ -36,7 +37,7 @@ It includes separate Admin and Student dashboards, a notification bell, exam ava
 | Area | What it does |
 | --- | --- |
 | **Dashboard** | Totals for exams, questions, students and results. Average and pass metrics, a recent activity feed, quick actions. |
-| **Exams** | Create, edit and delete. Set start, end and optional publish time. If questions are incomplete at publish time, the exam does not auto-publish. |
+| **Exams** | Create, edit and delete. Set the **exam start date**, the end date/time and an optional **publish time**. Times in the past are rejected. The list can be searched by name and filtered by status. If questions are incomplete at publish time, the exam does not auto-publish and the admin is notified. |
 | **Questions** | Pick an exam once, then add questions in a continuous flow. Questions are filtered to that exam, numbered `Q1`, `Q2`, … and validated. |
 | **Marks criteria** | A question set must sum to the exam's `totalMarks`. The UI warns when it is short and blocks questions that would overshoot. |
 | **Students** | List, search, edit and delete accounts. |
@@ -47,18 +48,20 @@ Exam status badges:
 
 | Badge | Meaning |
 | --- | --- |
+| `Publish Missed` | The publish time passed while the questions were still incomplete. The admin is notified. |
 | `Draft` | Questions are missing or the marks do not add up yet. |
-| `Coming Soon` | Complete, but the start time is still ahead. |
-| `Published` | Complete and inside its start/end window. |
 | `Ended` | The end time has passed. |
+| `Coming Soon` | Complete, but the start time is still ahead. |
+| `Scheduled` | Complete, but a publish time is still in the future. |
+| `Published` | Complete, published and inside its start/end window. |
 
 ### Student
 
 | Area | What it does |
 | --- | --- |
-| **Dashboard** | Available exams, completed results, average score and pass rate. |
-| **Availability** | Only exams inside their window, with complete questions, can be started. Upcoming exams show *Coming Soon*. Ended exams show *Ended* and cannot be opened. |
-| **Timed exams** | Live countdown. The exam submits itself when the timer reaches zero. |
+| **Dashboard** | Available exams, completed results, average score and pass rate. The exam list can be searched by name and filtered by status (Available, Upcoming, Completed, Ended). |
+| **Availability** | Only exams inside their window, with complete questions and past their publish time, can be started. Upcoming exams show *Coming Soon* and scheduled ones show *Publishing Soon*, with details hidden. Ended exams show *Ended* and offer no Start button. |
+| **Timed exams** | Live countdown that only starts once the questions have loaded. The exam submits itself when the timer reaches zero. |
 | **Scoring** | Score, percentage and Pass/Fail computed on submit against the configured passing percentage. |
 | **Answer review** | Shows the chosen answer, marks it right or wrong, and reveals the correct answer for wrong ones. |
 | **Profile** | Update personal details and change password. |
@@ -66,8 +69,11 @@ Exam status badges:
 ### Shared
 
 - **Role-based layouts.** `AdminLayout` and `StudentLayout`, each with a sidebar.
-- **Notification bell.** Built from live data (new exams, completed exams, registered students), with an unread badge kept in `localStorage`.
+- **Notification bell.** Built from live data (new exams, completed exams, registered students). For admins it also raises a **"Publish time missed"** notification naming the specific exam and the reason. The unread badge is kept in `localStorage`.
 - **In-app popups.** `NoticeModal` and `ConfirmModal` replace `alert()` and `window.confirm()`.
+- **Consistent dates.** Every date is shown as **DD/MM/YYYY** (and `DD/MM/YYYY, HH:mm` when a time matters), through shared helpers in `src/utils/time.js`.
+- **Use-case input validation.** Phone numbers, emails, names, usernames and passwords are validated in the browser and again on the server. See [Input validation](#input-validation).
+- **Session persistence.** The login page is shown on first load (no auto sign-in). The session lives in `localStorage`, so a refresh keeps you on the current page instead of logging you out.
 - **Accurate relative times.** "x minutes ago" uses real timestamps and falls back to the MongoDB ObjectId timestamp for older records. See [Timestamps](#timestamps).
 
 <br>
@@ -102,7 +108,7 @@ Exam status badges:
 1. The React app calls the REST API with `fetch`. The base URL `http://localhost:5000` is written directly in the page components.
 2. Express routes in `backend/routes/*` validate input and hand off to Mongoose models.
 3. Mongoose reads and writes MongoDB at `mongodb://localhost:27017/examination`.
-4. Exam endpoints add computed fields (`isPublished`, `isUpcoming`, `isAvailable`, `questionCount`, `questionsTotalMarks`) before responding. See [Business rules](#business-rules).
+4. Exam endpoints compute publish and availability fields on every request (`isPublished`, `isUpcoming`, `isEnded`, `isAvailable`, `isPublishPending`, `publishMissed`, `questionCount`, `questionsTotalMarks`, …) before responding. See [Business rules](#business-rules).
 
 ### Frontend
 
@@ -111,8 +117,8 @@ Exam status badges:
 | **Routing** (`src/App.js`) | Public: `/` (login), `/register`.<br>Admin: `/admin-dashboard`, `/exam-management`, `/question-management`, `/student-management`, `/result-management`, `/admin-settings`.<br>Student: `/student-dashboard`, `/exam/:examId`, `/result/:id`, `/student-settings`. |
 | **Layouts** | `AdminLayout` and `StudentLayout`: sidebar, greeting and notification bell for the dashboard-style pages. |
 | **Reusable UI** | `Modal.js` (base), `NoticeModal.js`, `ConfirmModal.js`, `Icons.js`, `NotificationBell.js`. |
-| **Utilities** | `src/utils/time.js` handles timestamp parsing and relative time formatting. |
-| **Session** | `userId`, `username` and `usertype` are kept in `localStorage` after login and used for role gating and API calls. |
+| **Utilities** | `src/utils/time.js` handles timestamp parsing, relative time and the shared `DD/MM/YYYY` date helpers (`formatDate`, `formatDateTime`, `todayDateValue`). `src/utils/validation.js` holds the shared form-validation rules. |
+| **Session** | `userId`, `username` and `usertype` are kept in `localStorage` after login and used for role gating and API calls. The login page is only shown when there is no session, so a refresh keeps the current page. |
 
 ### Backend
 
@@ -120,6 +126,7 @@ Exam status badges:
 | --- | --- |
 | **Entry point** (`server.js`) | Starts Express, enables CORS and JSON parsing, mounts routers under `/api/*`, connects to MongoDB. |
 | **Routers** | One per resource: `login`, `users`, `exams`, `questions`, `results`, `settings`. |
+| **Validation** (`utils/validate.js`) | Dependency-free helpers that mirror the frontend rules, so the API rejects the same bad data. |
 | **Models** | Mongoose schemas with `timestamps: true` (`createdAt`, `updatedAt`). |
 
 <br>
@@ -139,13 +146,15 @@ Online Exam Management/
 │   │   ├── questionmodel.js      Exam questions
 │   │   ├── resultmodel.js        Student attempts and results
 │   │   └── settingmodel.js       Global system settings
-│   └── routes/
-│       ├── loginRoutes.js        Register, login, password
-│       ├── userRoutes.js         User profiles (CRUD)
-│       ├── examRoutes.js         Exams (CRUD and publish status)
-│       ├── questionRoutes.js     Questions (CRUD)
-│       ├── resultRoutes.js       Results (CRUD)
-│       └── settingRoutes.js      Global settings
+│   ├── routes/
+│   │   ├── loginRoutes.js        Register, login, password
+│   │   ├── userRoutes.js         User profiles (CRUD)
+│   │   ├── examRoutes.js         Exams (CRUD and publish status)
+│   │   ├── questionRoutes.js     Questions (CRUD)
+│   │   ├── resultRoutes.js       Results (CRUD)
+│   │   └── settingRoutes.js      Global settings
+│   └── utils/
+│       └── validate.js           Server-side validation rules
 │
 └── frontend/
     ├── public/
@@ -171,7 +180,8 @@ Online Exam Management/
         │   ├── ResultPage.js         Result and answer review
         │   └── AdminSettings.js / StudentSettings.js
         └── utils/
-            └── time.js               Timestamp and relative time helpers
+            ├── time.js               Timestamp, relative time and date helpers
+            └── validation.js         Shared form-validation rules
 ```
 
 <br>
@@ -202,7 +212,7 @@ Online Exam Management/
 | `username` | String | Required, unique |
 | `name` | String | Required |
 | `email` | String | Required, unique, lowercased |
-| `phoneNumber` | String | Required |
+| `phoneNumber` | String | Required, exactly 10 digits |
 | `gender` | String | Required |
 | `usertype` | String | Default `"Student"` |
 | timestamps | Date | `createdAt`, `updatedAt` |
@@ -222,15 +232,15 @@ Online Exam Management/
 | `totalMarks` | Number | Required |
 | `createdDate` | String | Required, `YYYY-MM-DD`. Sent by the form; the true creation time is `createdAt`. |
 | `examDate` | String | Required. Legacy, may be date-only or date-time. |
-| `examStartDateTime` | String | Optional, `YYYY-MM-DDTHH:mm` |
+| `examStartDateTime` | String | Optional, `YYYY-MM-DD` (**date only**). Older records may hold `YYYY-MM-DDTHH:mm`. |
 | `examEndDateTime` | String | Optional, `YYYY-MM-DDTHH:mm` |
 | `examEndDate` | String | Optional, `YYYY-MM-DD`. Legacy end date, kept for backward compatibility. |
-| `publishAt` | String | Optional, `YYYY-MM-DDTHH:mm`. Scheduled publish time. |
+| `publishAt` | String | Optional, `HH:mm` (**time only**, applied to the exam start date). Older records may hold a full datetime. |
 | timestamps | Date | `createdAt`, `updatedAt` |
 
 Exam endpoints also return computed fields that are **not stored**:
 
-`questionCount` · `questionsTotalMarks` · `isPublished` · `isPublishedQuestions` · `isUpcoming` · `isEnded` · `isAvailable` · `publishTimeReached` · `canAutoPublish` · `publishMissed` · `missedPublishReason`
+`questionCount` · `questionsTotalMarks` · `isPublished` · `isPublishedQuestions` · `questionsMissing` · `marksNotSatisfied` · `isUpcoming` · `isEnded` · `isAvailable` · `isPublishPending` · `publishTime` · `publishTimeReached` · `canAutoPublish` · `publishMissed` · `missedPublishReason`
 
 </details>
 
@@ -398,14 +408,23 @@ isPublishedQuestions = questionCount > 0 AND questionsTotalMarks == exam.totalMa
 isPublished          = isPublishedQuestions
 isUpcoming           = start time > now          (server local time)
 isEnded              = end time   < now          (server local time)
-isAvailable          = isPublished
-                       AND publish time reached  (if scheduled)
-                       AND NOT isUpcoming
-                       AND NOT isEnded
+
+publishTime          = publishAt anchored to the exam start date (or "now" if unset)
+publishTimeReached   = publish time unset OR publishTime <= now
+
+isAvailable          = isPublishedQuestions AND publishTimeReached
+                       AND NOT isUpcoming AND NOT isEnded
+isPublishPending     = isPublishedQuestions AND publish time set
+                       AND NOT publishTimeReached AND NOT isEnded
+publishMissed        = publish time set AND publishTimeReached
+                       AND NOT isPublishedQuestions
 ```
 
 - A new exam starts as a **Draft**. It is not published until its questions are complete and it is inside its time window.
-- If `publishAt` is set and the questions are not complete by then, the exam will not auto-publish (`publishMissed = true`). The admin has to finish the questions.
+- **No publish time** → the exam publishes as soon as the questions are complete (and it is inside the window).
+- **Publish time set** → the exam publishes only at that time, once the questions are complete. Until then it shows as `Scheduled`.
+- **Publish time reached but questions incomplete** → the exam does **not** publish (`publishMissed = true`). The admin gets a *Publish time missed* notification naming the exam and the reason (`missedPublishReason`).
+- Because `publishAt` is a time only, it is applied to the exam's start date: `10:00` on a start date of `2026-11-01` means `2026-11-01 10:00`. (Older records that stored a full datetime are honoured as-is.)
 - Editing questions or exam times changes availability immediately.
 - Start, end and publish times are all compared against the server's local time.
 
@@ -414,15 +433,38 @@ isAvailable          = isPublished
 | Exam state | Student sees |
 | --- | --- |
 | Available | Full details and a Start button. |
-| Upcoming | *Coming Soon* with the exam name only. Description, details and Start button are hidden. |
-| Ended | *Ended*, with the Start button disabled. |
+| Upcoming | *Coming Soon* — exam name only. Description, details and Start button are hidden. |
+| Publishing soon | *Publishing Soon* — exam name only, until the scheduled publish time. |
+| Ended | *Ended*, with no Start button. |
 
-`ExamPage` also guards direct navigation. Unpublished exams show an "unavailable" message, upcoming exams return before any questions are fetched, and ended exams are blocked.
+`ExamPage` also guards direct navigation using `isAvailable`. Unpublished, upcoming, publishing-soon and ended exams return before any questions are fetched, so a direct link cannot start an exam early.
 
 ### Marks criteria
 
 - A question set must sum to the exam's `totalMarks`.
 - The question editor shows a live criteria panel. It warns when the total is short and blocks adding or updating a question that would overshoot.
+
+### Input validation
+
+The rules live in one place per side — `frontend/src/utils/validation.js` and `backend/utils/validate.js` — and mirror each other, so the API rejects bad data even when it is called directly.
+
+| Field | Rule |
+| --- | --- |
+| Name | 2–60 characters, at least one letter |
+| Username | 3–30 characters: letters, numbers, `.`, `_`, `-` |
+| Email | `something@something.tld` (at least a 2-letter suffix) |
+| Phone | Exactly 10 digits |
+| Password | At least 6 characters |
+| Gender | `Male`, `Female` or `Other` |
+
+The forms also set matching `maxLength` / `inputMode` attributes, and the phone field keeps only digits while you type, so an invalid value is corrected before it can be submitted.
+
+### Dates and times
+
+- Every date is displayed as **DD/MM/YYYY** (`DD/MM/YYYY, HH:mm` when a time matters), through shared helpers in `frontend/src/utils/time.js`.
+- Storage stays as plain strings so nothing is timezone-shifted: dates are `YYYY-MM-DD`, date-times are `YYYY-MM-DDTHH:mm`, and the publish time is `HH:mm`.
+- Plain `YYYY-MM-DD` values are read literally (never as `new Date(...)`) so a UTC offset cannot change the displayed day.
+- The **exam start date** is date only; the end carries a date and time.
 
 ### Scoring
 
@@ -434,7 +476,7 @@ percentage  = round((score / totalMarks) * 100, 2)
 status      = percentage >= passingPercentage ? "Pass" : "Fail"
 ```
 
-The exam auto-submits when the timer reaches `0:00`. A guard prevents a double submission from the timer and a click.
+The exam auto-submits when the timer reaches `0:00`. The countdown only becomes active once the questions have loaded, so clicking Start can never trigger an instant submit (and a Fail). A guard prevents a double submission from the timer and a click.
 
 ### Cascading deletes
 
@@ -496,15 +538,15 @@ Students can register themselves from the Register page while `allowRegistration
 **As an admin**
 
 1. Sign in with `admin` / `admin@123`.
-2. Open **Manage Exams** and create an exam: name, description, duration, total marks, exam date. It is saved as a Draft.
-3. Open **Manage Questions**, select the exam, and add questions until the marks equal the exam's total. The exam becomes Published, or Coming Soon if its date is in the future.
+2. Open **Manage Exams** and create an exam: name, description, duration, total marks, exam start date, end date/time and, optionally, a publish time. It is saved as a Draft.
+3. Open **Manage Questions**, select the exam, and add questions until the marks equal the exam's total. The exam becomes Published, or Coming Soon / Scheduled if its start or publish time is still ahead.
 4. Use **Manage Students** to review, edit or remove accounts.
 5. Use **Results** to monitor attempts and **Settings** to change the passing percentage, defaults and registration.
 
 **As a student**
 
 1. Register, or sign in with an existing account.
-2. Start an available exam from the dashboard and answer within the timer.
+2. Search or filter the exam list (by name or status), then start an available exam and answer within the timer.
 3. Submit manually, or let the timer submit for you.
 4. Open the result page to see your score, percentage and Pass/Fail, along with the answer review.
 
@@ -542,7 +584,7 @@ This project is meant for learning and demonstration. Before any production use:
 - **URLs and ports are hardcoded.** Move the API base URL and Mongo URI into environment variables.
 - **The timer is client-side only.** A hardened system should also enforce time limits on the server.
 - **CORS is fully open.** Restrict allowed origins.
-- **Dates are plain strings.** `Exam.examDate` and `createdDate` are stored as `YYYY-MM-DD` strings, and availability logic depends on the server's local date.
+- **Dates are plain strings.** `Exam.examDate`, `createdDate` and `examStartDateTime` are stored as `YYYY-MM-DD` strings, other times as `YYYY-MM-DDTHH:mm` (the publish time as `HH:mm`). Availability logic depends on the server's local time.
 
 <br>
 

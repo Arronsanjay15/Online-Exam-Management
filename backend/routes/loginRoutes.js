@@ -5,6 +5,12 @@ const Login = require("../model/loginmodel");
 const User = require("../model/usermodel");
 const Setting = require("../model/settingmodel");
 
+const {
+    isValidUsername,
+    isValidPassword,
+    validateProfileFields
+} = require("../utils/validate");
+
 // REGISTER
 router.post("/register", async (req, res) => {
     try {
@@ -35,6 +41,33 @@ router.post("/register", async (req, res) => {
         ) {
             return res.status(400).json({
                 message: "Please fill all fields"
+            });
+        }
+
+        // Format checks that mirror the register form.
+        if (!isValidUsername(username)) {
+            return res.status(400).json({
+                message:
+                    "Username must be 3-30 characters using letters, numbers, dot, underscore or hyphen"
+            });
+        }
+
+        if (!isValidPassword(password)) {
+            return res.status(400).json({
+                message: "Password must be at least 6 characters"
+            });
+        }
+
+        const profileErrors = validateProfileFields({
+            name,
+            email,
+            phoneNumber,
+            gender
+        });
+
+        if (profileErrors.length > 0) {
+            return res.status(400).json({
+                message: profileErrors[0]
             });
         }
 
@@ -198,6 +231,12 @@ router.put("/password", async (req, res) => {
         if (!username || !currentPassword || !newPassword) {
             return res.status(400).json({
                 message: "All fields are required"
+            });
+        }
+
+        if (!isValidPassword(newPassword)) {
+            return res.status(400).json({
+                message: "New password must be at least 6 characters"
             });
         }
 

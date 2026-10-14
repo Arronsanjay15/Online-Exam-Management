@@ -14,6 +14,8 @@ import {
     AlertIcon
 } from "../components/Icons";
 
+import { formatDate as formatDisplayDate } from "../utils/time";
+
 function ResultManagement() {
 
 
@@ -259,25 +261,7 @@ function ResultManagement() {
             return "N/A";
         }
 
-        const parsedDate =
-            new Date(date);
-
-        if (
-            Number.isNaN(
-                parsedDate.getTime()
-            )
-        ) {
-            return "N/A";
-        }
-
-        return parsedDate.toLocaleDateString(
-            "en-GB",
-            {
-                day: "2-digit",
-                month: "short",
-                year: "numeric"
-            }
-        );
+        return formatDisplayDate(date) || "N/A";
 
     };
 

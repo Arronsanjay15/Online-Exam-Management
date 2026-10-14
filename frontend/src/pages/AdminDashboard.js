@@ -13,7 +13,8 @@ import {
 } from "../components/Icons";
 
 import {
-    getRecordTime
+    getRecordTime,
+    formatDate
 } from "../utils/time";
 
 function AdminDashboard() {
@@ -361,7 +362,7 @@ function AdminDashboard() {
         }
 
 
-        return date.toLocaleDateString();
+        return formatDate(date);
 
     };
 

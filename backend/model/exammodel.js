@@ -31,7 +31,8 @@ const examSchema = new mongoose.Schema({
         required: true
     },
 
-    // Exam start date and time (YYYY-MM-DDTHH:mm or ISO string)
+    // Exam start date (YYYY-MM-DD). Older records may still
+    // hold a date and time (YYYY-MM-DDTHH:mm or ISO string).
     examStartDateTime: {
         type: String,
         required: false
@@ -43,7 +44,9 @@ const examSchema = new mongoose.Schema({
         required: false
     },
 
-    // Optional scheduled publish time - when exam should become available if conditions met
+    // Optional scheduled publish time (HH:mm). Applied to the
+    // exam start date. Older records may still hold a full
+    // datetime, which is honoured as-is.
     publishAt: {
         type: String,
         required: false

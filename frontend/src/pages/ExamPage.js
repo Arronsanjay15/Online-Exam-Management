@@ -11,6 +11,8 @@ import {
     XIcon
 } from "../components/Icons";
 
+import { formatDateTime } from "../utils/time";
+
 function ExamPage() {
 
     const { examId } = useParams();
@@ -27,6 +29,14 @@ function ExamPage() {
     const [error, setError] = useState("");
     const [unavailable, setUnavailable] = useState(false);
     const [upcoming, setUpcoming] = useState(false);
+    const [pendingPublish, setPendingPublish] = useState(false);
+
+    // True only while the exam is genuinely running (questions
+    // loaded and the countdown started). The timer and the
+    // auto-submit must never fire before this, otherwise an exam
+    // that is blocked (draft, upcoming, scheduled, ended) would
+    // submit an empty "Fail" result the moment it opens.
+    const [examActive, setExamActive] = useState(false);
 
     // Popups
     const [showSubmitModal, setShowSubmitModal] = useState(false);
@@ -60,6 +70,8 @@ function ExamPage() {
             setLoading(true);
             setUnavailable(false);
             setUpcoming(false);
+            setPendingPublish(false);
+            setExamActive(false);
 
             // Get exam
             const examResponse = await fetch(
@@ -90,11 +102,27 @@ function ExamPage() {
                 return;
             }
 
+            // Questions are ready but a scheduled publish time is
+            // still in the future, so it has not been released.
+            if (examData.isPublishPending === true) {
+                setExam(examData);
+                setPendingPublish(true);
+                return;
+            }
+
             // Block if exam has ended
             if (examData.isEnded === true) {
                 setExam(examData);
                 setUnavailable(true);
                 setError("This exam has ended and is no longer available.");
+                return;
+            }
+
+            // Final gate: only an exam the server marked as
+            // available may actually be started.
+            if (examData.isAvailable !== true) {
+                setExam(examData);
+                setUnavailable(true);
                 return;
             }
 
@@ -116,9 +144,23 @@ function ExamPage() {
             setQuestions(questionData);
 
             // Duration is stored in minutes
-            setTimeLeft(
-                Math.max(0, Number(examData.duration) * 60 || 0)
+            const durationSeconds = Math.max(
+                0,
+                Number(examData.duration) * 60 || 0
             );
+
+            setTimeLeft(durationSeconds);
+
+            // An exam without a usable duration cannot be run.
+            // Mark it unavailable instead of letting an empty
+            // attempt auto-submit straight away.
+            if (durationSeconds <= 0) {
+                setUnavailable(true);
+                return;
+            }
+
+            // Everything is ready, so the exam is now running.
+            setExamActive(true);
 
             // Passing percentage is configured by the admin
             try {
@@ -158,7 +200,7 @@ function ExamPage() {
     // TIMER - counts down one second at a time
     useEffect(() => {
 
-        if (loading || timeLeft <= 0) {
+        if (loading || !examActive || timeLeft <= 0) {
             return;
         }
 
@@ -170,18 +212,18 @@ function ExamPage() {
 
         return () => clearTimeout(timer);
 
-    }, [loading, timeLeft]);
+    }, [loading, examActive, timeLeft]);
 
 
     // AUTO SUBMIT - when the time is over
     useEffect(() => {
 
-        if (!loading && exam && timeLeft === 0) {
+        if (!loading && examActive && timeLeft === 0) {
             submitExam();
         }
 
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [loading, exam, timeLeft]);
+    }, [loading, examActive, timeLeft]);
 
 
     const formatTime = (seconds) => {
@@ -445,17 +487,53 @@ function ExamPage() {
                 <p>
                     This exam is not open yet. It will be
                     available from{" "}
-                    {exam?.examStartDateTime
-                        ? String(exam.examStartDateTime).replace('T', ' ')
-                        : exam?.examDate
-                        ? String(exam.examDate).substring(0, 10)
+                    {exam?.examStartDateTime || exam?.examDate
+                        ? formatDateTime(
+                              exam.examStartDateTime || exam.examDate
+                          )
                         : "the scheduled start time"}
                     {exam?.examEndDateTime || exam?.examEndDate
-                        ? ` to ${exam.examEndDateTime
-                            ? String(exam.examEndDateTime).replace('T', ' ')
-                            : String(exam.examEndDate).substring(0, 10)}`
+                        ? ` to ${formatDateTime(
+                              exam.examEndDateTime || exam.examEndDate
+                          )}`
                         : ""}
                     .
+                </p>
+
+                <button
+                    onClick={() =>
+                        navigate("/student-dashboard")
+                    }
+                >
+                    Back to Dashboard
+                </button>
+
+            </div>
+        );
+
+    }
+
+
+    if (pendingPublish) {
+
+        return (
+            <div className="exam-page-message">
+
+                <div className="exam-loading-icon">
+                    <ClockIcon size={30} />
+                </div>
+
+                <h2>
+                    {exam?.examName || "Examination"}
+                </h2>
+
+                <p>
+                    The questions for this exam are complete, but it
+                    is scheduled to publish at{" "}
+                    {exam?.publishTime
+                        ? formatDateTime(exam.publishTime)
+                        : "the scheduled publish time"}
+                    . Please check back then.
                 </p>
 
                 <button
